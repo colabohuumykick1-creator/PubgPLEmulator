@@ -82,6 +82,9 @@ client.once(Events.ClientReady, async (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  console.log(
+    [INTERACTION] command= guild=
+  );
   try {
     if (
       interaction.isButton() &&
