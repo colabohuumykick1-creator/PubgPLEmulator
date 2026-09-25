@@ -7,6 +7,8 @@ export const BRAND = {
   footer: 'EMUPLCOOM • społeczność emulatorów / emulator community',
 };
 
+export const VERIFICATION_ROLE_ID = '1476867174390825102';
+
 export const ROLE_KEYS = {
   OWNER: 'OWNER',
   ADMIN: 'ADMIN',

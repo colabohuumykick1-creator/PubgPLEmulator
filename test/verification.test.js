@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Collection } from 'discord.js';
-import { ROLE_KEYS, roles } from '../src/config.js';
+import { ROLE_KEYS, roles, VERIFICATION_ROLE_ID } from '../src/config.js';
 import {
   assignUnverifiedRole,
   starterMessages,
@@ -49,6 +49,12 @@ test('weryfikacja nadaje rolę członka i wybraną rolę językową', async () =
   const unverifiedSpec = roles.find((role) => role.key === ROLE_KEYS.UNVERIFIED);
   const polishSpec = roles.find((role) => role.key === ROLE_KEYS.POLISH);
   const configuredRoles = [
+    {
+      id: VERIFICATION_ROLE_ID,
+      name: 'Społeczność EMU CENTER',
+      managed: false,
+      editable: true,
+    },
     { id: 'unverified-role', name: unverifiedSpec.name, managed: false, editable: true },
     { id: 'member-role', name: memberSpec.name, managed: false, editable: true },
     { id: 'verified-role', name: verifiedSpec.name, managed: false, editable: true },
@@ -92,7 +98,7 @@ test('weryfikacja nadaje rolę członka i wybraną rolę językową', async () =
   await verifyMember(interaction);
 
   assert.equal(deferred, true);
-  assert.deepEqual(addedRoleIds, ['member-role', 'verified-role', 'polish-role']);
+  assert.deepEqual(addedRoleIds, [VERIFICATION_ROLE_ID, 'polish-role']);
   assert.equal(removedRoleId, 'unverified-role');
   assert.match(reply.embeds[0].toJSON().title, /Verification complete/);
 });

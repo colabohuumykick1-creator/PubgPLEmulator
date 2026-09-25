@@ -20,6 +20,7 @@ import {
   roles,
   selfAssignableRoles,
   staffRoleKeys,
+  VERIFICATION_ROLE_ID,
 } from './config.js';
 
 const SETUP_REASON = 'Automatyczna konfiguracja serwera EMUPLCOOM';
@@ -1009,18 +1010,29 @@ export async function verifyMember(interaction) {
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  const requiredKeys = [ROLE_KEYS.MEMBER, ROLE_KEYS.VERIFIED, ...languageKeys];
-  const requiredRoles = requiredKeys.map((key) => configuredRole(interaction.guild, key));
+  const verificationRole =
+    interaction.guild.roles.cache.get(VERIFICATION_ROLE_ID) ??
+    await interaction.guild.roles.fetch(VERIFICATION_ROLE_ID).catch(() => null);
 
-  if (requiredRoles.some((role) => !role?.editable)) {
+  if (!verificationRole) {
     throw new Error(
-      'Brakuje wymaganej roli albo bot nie może nią zarządzać. Uruchom /setup i ustaw rolę bota wyżej.',
+      `Nie znaleziono roli weryfikacyjnej ${VERIFICATION_ROLE_ID}.`,
     );
   }
 
+  if (!verificationRole.editable) {
+    throw new Error(
+      `Rola bota musi znajdować się wyżej niż @${verificationRole.name} w Ustawienia serwera → Role.`,
+    );
+  }
+
+  const languageRoles = languageKeys
+    .map((key) => configuredRole(interaction.guild, key))
+    .filter((role) => role?.editable);
+
   const member = await interaction.guild.members.fetch(interaction.user.id);
   await member.roles.add(
-    requiredRoles.map((role) => role.id),
+    [verificationRole.id, ...languageRoles.map((role) => role.id)],
     'Weryfikacja EMUPLCOOM',
   );
 
