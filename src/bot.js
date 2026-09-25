@@ -297,51 +297,15 @@ process.once('SIGTERM', () =>
 
 async function startBot() {
   try {
-    console.log('Sprawdzam token Discord...');
-
-    const response = await fetch(
-      'https://discord.com/api/v10/users/@me',
-      {
-        headers: {
-          Authorization: `Bot ${token}`,
-        },
-      },
-    );
-
-    console.log(`Discord REST status: ${response.status}`);
-
-    if (!response.ok) {
-      const body = await response.text();
-
-      console.error(
-        'Discord odrzucił token:',
-        body,
-      );
-
-      process.exit(1);
-    }
-
-    const botInfo = await response.json();
-
-    console.log(
-      `Token poprawny. Bot: ${botInfo.username} (${botInfo.id})`,
-    );
-
     console.log(
       'Łączenie PubgPLEMULATOR z Discord Gateway...',
     );
 
     const gatewayTimeout = setTimeout(() => {
       console.error(
-        'TIMEOUT: brak ClientReady po 20 sekundach.',
+        'TIMEOUT: brak ClientReady po 30 sekundach.',
       );
-
-      client.destroy();
-
-      healthServer.close(() => {
-        process.exit(1);
-      });
-    }, 20000);
+    }, 30000);
 
     client.once(Events.ClientReady, () => {
       clearTimeout(gatewayTimeout);
@@ -350,7 +314,7 @@ async function startBot() {
     await client.login(token);
   } catch (error) {
     console.error(
-      'NIE UDAŁO SIĘ URUCHOMIĆ BOTA:',
+      'NIE UDAŁO SIĘ ZALOGOWAĆ DO DISCORDA:',
       error,
     );
 
@@ -361,4 +325,5 @@ async function startBot() {
 }
 
 startBot();
+
 
