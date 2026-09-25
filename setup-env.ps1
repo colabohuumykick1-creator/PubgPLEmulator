@@ -105,7 +105,14 @@ if ($savedToken -cne $token) {
 Write-Host "Sprawdzam token odczytany z nowego pliku .env..." -ForegroundColor Cyan
 $null = Test-DiscordBotToken -Token $savedToken
 
-Set-Clipboard -Value ""
+try {
+    # Windows PowerShell 5.1 odrzuca pusty tekst, dlatego nadpisujemy sekret
+    # pojedynczym bezpiecznym znakiem zamiast zatrzymywać uruchomienie.
+    Set-Clipboard -Value " "
+}
+catch {
+    Write-Host "Nie udalo sie wyczyscic schowka; wyczysc go recznie." -ForegroundColor Yellow
+}
 Remove-Variable clipboardText, token, savedToken, savedTokenLine -ErrorAction SilentlyContinue
 
 Write-Host ""
