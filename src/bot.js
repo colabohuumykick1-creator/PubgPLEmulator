@@ -83,7 +83,10 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   console.log(
-    [INTERACTION] command= guild=
+    '[INTERACTION] command=' +
+      (interaction.commandName ?? '-') +
+      ' guild=' +
+      (interaction.guildId ?? '-'),
   );
   try {
     if (
