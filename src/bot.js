@@ -1,4 +1,4 @@
-﻿import {
+import {
   ActivityType,
   Client,
   EmbedBuilder,
@@ -35,7 +35,7 @@ let setupRunning = false;
 async function runSetup(guild, progress = () => {}) {
   if (setupRunning) {
     throw new Error(
-      'Konfiguracja jest juĹĽ uruchomiona. Poczekaj na jej zakoĹ„czenie.',
+      'Konfiguracja jest już uruchomiona. Poczekaj na jej zakoĹ„czenie.',
     );
   }
 
@@ -57,7 +57,7 @@ client.once(Events.ClientReady, async (readyClient) => {
   readyClient.user.setPresence({
     activities: [
       {
-        name: 'PUBG Mobile â€˘ GameLoop â€˘ PL',
+        name: 'PUBG Mobile • GameLoop • PL',
         type: ActivityType.Watching,
       },
     ],
@@ -67,15 +67,15 @@ client.once(Events.ClientReady, async (readyClient) => {
   try {
     const guild = await readyClient.guilds.fetch(guildId);
 
-    console.log(`PoĹ‚Ä…czono z serwerem: ${guild.name} (${guild.id})`);
+    console.log(`Połączono z serwerem: ${guild.name} (${guild.id})`);
 
     await guild.commands.set(commandData);
 
-    console.log('Komendy slash zostaĹ‚y zarejestrowane.');
+    console.log('Komendy slash zostały zarejestrowane.');
     console.log('Bot PubgPLEMULATOR jest gotowy.');
   } catch (error) {
     console.error(
-      'Bot zalogowaĹ‚ siÄ™ do Discorda, ale wystÄ…piĹ‚ problem z serwerem lub komendami:',
+      'Bot zalogowaĹ‚ się do Discorda, ale wystÄ…piĹ‚ problem z serwerem lub komendami:',
       error,
     );
   }
@@ -129,7 +129,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ) {
         await interaction.reply({
           content:
-            'Tej komendy moĹĽe uĹĽyÄ‡ tylko administrator.',
+            'Tej komendy może uĹĽyÄ‡ tylko administrator.',
           flags: MessageFlags.Ephemeral,
         });
 
@@ -147,7 +147,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const warningText = report.warnings.length
         ? `\n\n**OstrzeĹĽenia:**\n${report.warnings
-            .map((item) => `â€˘ ${item}`)
+            .map((item) => `• ${item}`)
             .join('\n')}`
         : '';
 
@@ -156,7 +156,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           new EmbedBuilder()
             .setColor(BRAND.color)
             .setTitle(
-              'PubgPLEMULATOR â€˘ konfiguracja zakoĹ„czona âś…',
+              'PubgPLEMULATOR • konfiguracja zakoĹ„czona âś…',
             )
             .setDescription(
               `Utworzono: **${report.created.length}**\n` +
@@ -184,7 +184,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             .setTitle('PubgPLEMULATOR đźŽ®')
             .setDescription(
               'Bot spoĹ‚ecznoĹ›ci **PUBG Mobile PL Emulator Center**.\n\n' +
-                'ObsĹ‚uguje konfiguracjÄ™ serwera, role, wiadomoĹ›ci i narzÄ™dzia administracyjne.',
+                'Obsługuje konfiguracjÄ™ serwera, role, wiadomoĹ›ci i narzÄ™dzia administracyjne.',
             )
             .addFields(
               {
@@ -212,10 +212,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await sendEmbedCommand(interaction);
     }
   } catch (error) {
-    console.error('BĹ‚Ä…d interakcji:', error);
+    console.error('Błąd interakcji:', error);
 
     const message =
-      `Nie udaĹ‚o siÄ™ wykonaÄ‡ operacji: ${error.message}`;
+      `Nie udaĹ‚o się wykonaÄ‡ operacji: ${error.message}`;
 
     if (
       interaction.deferred ||
@@ -241,7 +241,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.Error, (error) => {
   console.error(
-    'BĹ‚Ä…d klienta Discord:',
+    'Błąd klienta Discord:',
     error,
   );
 });

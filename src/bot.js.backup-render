@@ -1,0 +1,329 @@
+﻿import {
+  ActivityType,
+  Client,
+  EmbedBuilder,
+  Events,
+  GatewayIntentBits,
+  MessageFlags,
+  PermissionFlagsBits,
+} from 'discord.js';
+
+import { BRAND } from './config.js';
+import { commandData } from './commands.js';
+import { sendEmbedCommand } from './embedCommand.js';
+import { getBotConfig } from './env.js';
+import { useSingleShardGateway } from './gateway.js';
+import { startHealthServer } from './healthServer.js';
+import { setupGuild, toggleSelfRole, verifyMember } from './setupGuild.js';
+
+const { token, guildId } = getBotConfig();
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+  ],
+  shards: [0],
+  shardCount: 1,
+});
+
+useSingleShardGateway(client.rest);
+
+const healthServer = startHealthServer(client);
+
+let setupRunning = false;
+
+async function runSetup(guild, progress = () => {}) {
+  if (setupRunning) {
+    throw new Error(
+      'Konfiguracja jest juĹĽ uruchomiona. Poczekaj na jej zakoĹ„czenie.',
+    );
+  }
+
+  setupRunning = true;
+
+  try {
+    return await setupGuild(guild, progress);
+  } finally {
+    setupRunning = false;
+  }
+}
+
+client.once(Events.ClientReady, async (readyClient) => {
+  console.log('======================================');
+  console.log(`Discord: zalogowano jako ${readyClient.user.tag}`);
+  console.log(`Bot ID: ${readyClient.user.id}`);
+  console.log('======================================');
+
+  readyClient.user.setPresence({
+    activities: [
+      {
+        name: 'PUBG Mobile â€˘ GameLoop â€˘ PL',
+        type: ActivityType.Watching,
+      },
+    ],
+    status: 'online',
+  });
+
+  try {
+    const guild = await readyClient.guilds.fetch(guildId);
+
+    console.log(`PoĹ‚Ä…czono z serwerem: ${guild.name} (${guild.id})`);
+
+    await guild.commands.set(commandData);
+
+    console.log('Komendy slash zostaĹ‚y zarejestrowane.');
+    console.log('Bot PubgPLEMULATOR jest gotowy.');
+  } catch (error) {
+    console.error(
+      'Bot zalogowaĹ‚ siÄ™ do Discorda, ale wystÄ…piĹ‚ problem z serwerem lub komendami:',
+      error,
+    );
+  }
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith('emuplcoom-verify:')
+    ) {
+      if (interaction.guildId !== guildId) {
+        await interaction.reply({
+          content: 'Ten bot jest skonfigurowany dla innego serwera.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await verifyMember(interaction);
+      return;
+    }
+
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith('emuplcoom-role:')
+    ) {
+      await toggleSelfRole(interaction);
+      return;
+    }
+
+    if (!interaction.isChatInputCommand()) {
+      return;
+    }
+
+    if (interaction.guildId !== guildId) {
+      await interaction.reply({
+        content:
+          'Ten bot jest skonfigurowany dla innego serwera.',
+        flags: MessageFlags.Ephemeral,
+      });
+
+      return;
+    }
+
+    if (interaction.commandName === 'setup') {
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.Administrator,
+        )
+      ) {
+        await interaction.reply({
+          content:
+            'Tej komendy moĹĽe uĹĽyÄ‡ tylko administrator.',
+          flags: MessageFlags.Ephemeral,
+        });
+
+        return;
+      }
+
+      await interaction.deferReply({
+        flags: MessageFlags.Ephemeral,
+      });
+
+      const report = await runSetup(
+        interaction.guild,
+        (message) => console.log(message),
+      );
+
+      const warningText = report.warnings.length
+        ? `\n\n**OstrzeĹĽenia:**\n${report.warnings
+            .map((item) => `â€˘ ${item}`)
+            .join('\n')}`
+        : '';
+
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(BRAND.color)
+            .setTitle(
+              'PubgPLEMULATOR â€˘ konfiguracja zakoĹ„czona âś…',
+            )
+            .setDescription(
+              `Utworzono: **${report.created.length}**\n` +
+                `Zaktualizowano: **${report.updated.length}**` +
+                warningText,
+            )
+            .setFooter({
+              text: BRAND.footer,
+            })
+            .setTimestamp(),
+        ],
+      });
+
+      return;
+    }
+
+    if (
+      interaction.commandName === 'emuplcoom' ||
+      interaction.commandName === 'pubgplemulator'
+    ) {
+      await interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(BRAND.accentColor)
+            .setTitle('PubgPLEMULATOR đźŽ®')
+            .setDescription(
+              'Bot spoĹ‚ecznoĹ›ci **PUBG Mobile PL Emulator Center**.\n\n' +
+                'ObsĹ‚uguje konfiguracjÄ™ serwera, role, wiadomoĹ›ci i narzÄ™dzia administracyjne.',
+            )
+            .addFields(
+              {
+                name: 'Status',
+                value: 'đźź˘ Online',
+                inline: true,
+              },
+              {
+                name: 'Wersja',
+                value: '1.0.0',
+                inline: true,
+              },
+            )
+            .setFooter({
+              text: BRAND.footer,
+            }),
+        ],
+        flags: MessageFlags.Ephemeral,
+      });
+
+      return;
+    }
+
+    if (interaction.commandName === 'embed') {
+      await sendEmbedCommand(interaction);
+    }
+  } catch (error) {
+    console.error('BĹ‚Ä…d interakcji:', error);
+
+    const message =
+      `Nie udaĹ‚o siÄ™ wykonaÄ‡ operacji: ${error.message}`;
+
+    if (
+      interaction.deferred ||
+      interaction.replied
+    ) {
+      await interaction
+        .editReply({
+          content: message,
+          embeds: [],
+          components: [],
+        })
+        .catch(() => {});
+    } else {
+      await interaction
+        .reply({
+          content: message,
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(() => {});
+    }
+  }
+});
+
+client.on(Events.Error, (error) => {
+  console.error(
+    'BĹ‚Ä…d klienta Discord:',
+    error,
+  );
+});
+
+client.on(Events.Warn, (warning) => {
+  console.warn(
+    'OstrzeĹĽenie Discord:',
+    warning,
+  );
+});
+
+client.on(Events.ShardDisconnect, (event, shardId) => {
+  console.warn(
+    `Discord rozĹ‚Ä…czyĹ‚ shard ${shardId}. Kod: ${event.code}`,
+  );
+});
+
+process.on('unhandledRejection', (error) => {
+  console.error(
+    'NieobsĹ‚uĹĽony Promise rejection:',
+    error,
+  );
+});
+
+process.on('uncaughtException', (error) => {
+  console.error(
+    'NieobsĹ‚uĹĽony wyjÄ…tek:',
+    error,
+  );
+});
+
+async function shutdown(signal) {
+  console.log(
+    `Odebrano ${signal}. WyĹ‚Ä…czam PubgPLEMULATOR...`,
+  );
+
+  client.destroy();
+
+  await new Promise((resolve) => {
+    healthServer.close(resolve);
+  });
+
+  process.exit(0);
+}
+
+process.once('SIGINT', () =>
+  shutdown('SIGINT'),
+);
+
+process.once('SIGTERM', () =>
+  shutdown('SIGTERM'),
+);
+
+async function startBot() {
+  try {
+    console.log(
+      'Łączenie PubgPLEMULATOR z Discord Gateway...',
+    );
+
+    const gatewayTimeout = setTimeout(() => {
+      console.error(
+        'TIMEOUT: brak ClientReady po 30 sekundach.',
+      );
+    }, 30000);
+
+    client.once(Events.ClientReady, () => {
+      clearTimeout(gatewayTimeout);
+    });
+
+    await client.login(token);
+  } catch (error) {
+    console.error(
+      'NIE UDAŁO SIĘ ZALOGOWAĆ DO DISCORDA:',
+      error,
+    );
+
+    healthServer.close(() => {
+      process.exit(1);
+    });
+  }
+}
+
+startBot();
+
+
