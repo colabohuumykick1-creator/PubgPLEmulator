@@ -1,4 +1,4 @@
-import {
+﻿import {
   ActivityType,
   Client,
   EmbedBuilder,
@@ -35,7 +35,7 @@ let setupRunning = false;
 async function runSetup(guild, progress = () => {}) {
   if (setupRunning) {
     throw new Error(
-      'Konfiguracja jest już uruchomiona. Poczekaj na jej zakończenie.',
+      'Konfiguracja jest juĹĽ uruchomiona. Poczekaj na jej zakoĹ„czenie.',
     );
   }
 
@@ -57,7 +57,7 @@ client.once(Events.ClientReady, async (readyClient) => {
   readyClient.user.setPresence({
     activities: [
       {
-        name: 'PUBG Mobile • GameLoop • PL',
+        name: 'PUBG Mobile â€˘ GameLoop â€˘ PL',
         type: ActivityType.Watching,
       },
     ],
@@ -67,15 +67,15 @@ client.once(Events.ClientReady, async (readyClient) => {
   try {
     const guild = await readyClient.guilds.fetch(guildId);
 
-    console.log(`Połączono z serwerem: ${guild.name} (${guild.id})`);
+    console.log(`PoĹ‚Ä…czono z serwerem: ${guild.name} (${guild.id})`);
 
     await guild.commands.set(commandData);
 
-    console.log('Komendy slash zostały zarejestrowane.');
+    console.log('Komendy slash zostaĹ‚y zarejestrowane.');
     console.log('Bot PubgPLEMULATOR jest gotowy.');
   } catch (error) {
     console.error(
-      'Bot zalogował się do Discorda, ale wystąpił problem z serwerem lub komendami:',
+      'Bot zalogowaĹ‚ siÄ™ do Discorda, ale wystÄ…piĹ‚ problem z serwerem lub komendami:',
       error,
     );
   }
@@ -129,7 +129,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ) {
         await interaction.reply({
           content:
-            'Tej komendy może użyć tylko administrator.',
+            'Tej komendy moĹĽe uĹĽyÄ‡ tylko administrator.',
           flags: MessageFlags.Ephemeral,
         });
 
@@ -146,8 +146,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
 
       const warningText = report.warnings.length
-        ? `\n\n**Ostrzeżenia:**\n${report.warnings
-            .map((item) => `• ${item}`)
+        ? `\n\n**OstrzeĹĽenia:**\n${report.warnings
+            .map((item) => `â€˘ ${item}`)
             .join('\n')}`
         : '';
 
@@ -156,7 +156,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           new EmbedBuilder()
             .setColor(BRAND.color)
             .setTitle(
-              'PubgPLEMULATOR • konfiguracja zakończona ✅',
+              'PubgPLEMULATOR â€˘ konfiguracja zakoĹ„czona âś…',
             )
             .setDescription(
               `Utworzono: **${report.created.length}**\n` +
@@ -181,15 +181,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
         embeds: [
           new EmbedBuilder()
             .setColor(BRAND.accentColor)
-            .setTitle('PubgPLEMULATOR 🎮')
+            .setTitle('PubgPLEMULATOR đźŽ®')
             .setDescription(
-              'Bot społeczności **PUBG Mobile PL Emulator Center**.\n\n' +
-                'Obsługuje konfigurację serwera, role, wiadomości i narzędzia administracyjne.',
+              'Bot spoĹ‚ecznoĹ›ci **PUBG Mobile PL Emulator Center**.\n\n' +
+                'ObsĹ‚uguje konfiguracjÄ™ serwera, role, wiadomoĹ›ci i narzÄ™dzia administracyjne.',
             )
             .addFields(
               {
                 name: 'Status',
-                value: '🟢 Online',
+                value: 'đźź˘ Online',
                 inline: true,
               },
               {
@@ -212,10 +212,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await sendEmbedCommand(interaction);
     }
   } catch (error) {
-    console.error('Błąd interakcji:', error);
+    console.error('BĹ‚Ä…d interakcji:', error);
 
     const message =
-      `Nie udało się wykonać operacji: ${error.message}`;
+      `Nie udaĹ‚o siÄ™ wykonaÄ‡ operacji: ${error.message}`;
 
     if (
       interaction.deferred ||
@@ -241,41 +241,41 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 client.on(Events.Error, (error) => {
   console.error(
-    'Błąd klienta Discord:',
+    'BĹ‚Ä…d klienta Discord:',
     error,
   );
 });
 
 client.on(Events.Warn, (warning) => {
   console.warn(
-    'Ostrzeżenie Discord:',
+    'OstrzeĹĽenie Discord:',
     warning,
   );
 });
 
 client.on(Events.ShardDisconnect, (event, shardId) => {
   console.warn(
-    `Discord rozłączył shard ${shardId}. Kod: ${event.code}`,
+    `Discord rozĹ‚Ä…czyĹ‚ shard ${shardId}. Kod: ${event.code}`,
   );
 });
 
 process.on('unhandledRejection', (error) => {
   console.error(
-    'Nieobsłużony Promise rejection:',
+    'NieobsĹ‚uĹĽony Promise rejection:',
     error,
   );
 });
 
 process.on('uncaughtException', (error) => {
   console.error(
-    'Nieobsłużony wyjątek:',
+    'NieobsĹ‚uĹĽony wyjÄ…tek:',
     error,
   );
 });
 
 async function shutdown(signal) {
   console.log(
-    `Odebrano ${signal}. Wyłączam PubgPLEMULATOR...`,
+    `Odebrano ${signal}. WyĹ‚Ä…czam PubgPLEMULATOR...`,
   );
 
   client.destroy();
@@ -297,15 +297,61 @@ process.once('SIGTERM', () =>
 
 async function startBot() {
   try {
-    console.log(
-      'Łączenie PubgPLEMULATOR z Discordem...',
+    console.log('Sprawdzam token Discord...');
+
+    const response = await fetch(
+      'https://discord.com/api/v10/users/@me',
+      {
+        headers: {
+          Authorization: `Bot ${token}`,
+        },
+      },
     );
+
+    console.log(`Discord REST status: ${response.status}`);
+
+    if (!response.ok) {
+      const body = await response.text();
+
+      console.error(
+        'Discord odrzucił token:',
+        body,
+      );
+
+      process.exit(1);
+    }
+
+    const botInfo = await response.json();
+
+    console.log(
+      `Token poprawny. Bot: ${botInfo.username} (${botInfo.id})`,
+    );
+
+    console.log(
+      'Łączenie PubgPLEMULATOR z Discord Gateway...',
+    );
+
+    const gatewayTimeout = setTimeout(() => {
+      console.error(
+        'TIMEOUT: brak ClientReady po 20 sekundach.',
+      );
+
+      client.destroy();
+
+      healthServer.close(() => {
+        process.exit(1);
+      });
+    }, 20000);
+
+    client.once(Events.ClientReady, () => {
+      clearTimeout(gatewayTimeout);
+    });
 
     await client.login(token);
   } catch (error) {
     console.error(
-      'NIE UDAŁO SIĘ ZALOGOWAĆ DO DISCORDA:',
-      error.message,
+      'NIE UDAŁO SIĘ URUCHOMIĆ BOTA:',
+      error,
     );
 
     healthServer.close(() => {
@@ -315,3 +361,4 @@ async function startBot() {
 }
 
 startBot();
+
