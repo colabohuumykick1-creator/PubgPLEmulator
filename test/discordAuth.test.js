@@ -19,3 +19,11 @@ test('weryfikacja zamienia 401 na bezpieczny komunikat', async () => {
   );
 });
 
+test('weryfikacja nie blokuje startu przy chwilowym limicie Discord API', async () => {
+  const result = await verifyBotToken('secret', async () => ({
+    ok: false,
+    status: 429,
+  }));
+
+  assert.equal(result, null);
+});

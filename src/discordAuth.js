@@ -14,6 +14,13 @@ export async function verifyBotToken(token, fetchImplementation = fetch) {
     );
   }
 
+  // Walidacja wstępna jest tylko zabezpieczeniem. Discord może chwilowo
+  // ograniczyć ten endpoint podczas restartów lub kolejnych wdrożeń. W takim
+  // przypadku pozwalamy discord.js wykonać właściwe logowanie do Gateway.
+  if (response.status === 429 || response.status >= 500) {
+    return null;
+  }
+
   if (!response.ok) {
     throw new Error(`Discord API zwrocilo HTTP ${response.status}.`);
   }
@@ -26,4 +33,3 @@ export async function verifyBotToken(token, fetchImplementation = fetch) {
 
   return user;
 }
-
