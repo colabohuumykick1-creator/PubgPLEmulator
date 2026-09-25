@@ -128,6 +128,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.commandName === 'setup') {
+      console.log('[SETUP] handler rozpoczęty');
+      console.log(
+        '[SETUP] administrator=' +
+          Boolean(
+            interaction.memberPermissions?.has(
+              PermissionFlagsBits.Administrator,
+            ),
+          ),
+      );
       if (
         !interaction.memberPermissions?.has(
           PermissionFlagsBits.Administrator,
@@ -142,9 +151,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
+      console.log('[SETUP] przed deferReply');
+
       await interaction.deferReply({
         flags: MessageFlags.Ephemeral,
       });
+
+      console.log('[SETUP] deferReply OK');
 
       const report = await runSetup(
         interaction.guild,
