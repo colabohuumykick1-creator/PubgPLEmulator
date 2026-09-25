@@ -12,6 +12,7 @@ import { BRAND } from './config.js';
 import { commandData } from './commands.js';
 import { sendEmbedCommand } from './embedCommand.js';
 import { getBotConfig } from './env.js';
+import { useSingleShardGateway } from './gateway.js';
 import { startHealthServer } from './healthServer.js';
 import { setupGuild, toggleSelfRole, verifyMember } from './setupGuild.js';
 
@@ -21,7 +22,11 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
   ],
+  shards: [0],
+  shardCount: 1,
 });
+
+useSingleShardGateway(client.rest);
 
 const healthServer = startHealthServer(client);
 
