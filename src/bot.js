@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import {
   ActivityType,
   Client,
@@ -12,22 +10,13 @@ import {
 
 import { BRAND } from './config.js';
 import { commandData } from './commands.js';
+import { verifyBotToken } from './discordAuth.js';
 import { sendEmbedCommand } from './embedCommand.js';
+import { getBotConfig } from './env.js';
 import { startHealthServer } from './healthServer.js';
-import { setupGuild, toggleSelfRole } from './setupGuild.js';
+import { setupGuild, toggleSelfRole, verifyMember } from './setupGuild.js';
 
-const token = process.env.DISCORD_TOKEN?.trim();
-const guildId = process.env.GUILD_ID?.trim();
-
-if (!token) {
-  console.error('Brak zmiennej DISCORD_TOKEN.');
-  process.exit(1);
-}
-
-if (!guildId) {
-  console.error('Brak zmiennej GUILD_ID.');
-  process.exit(1);
-}
+const { token, guildId } = getBotConfig();
 
 const client = new Client({
   intents: [
@@ -90,6 +79,22 @@ client.once(Events.ClientReady, async (readyClient) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith('emuplcoom-verify:')
+    ) {
+      if (interaction.guildId !== guildId) {
+        await interaction.reply({
+          content: 'Ten bot jest skonfigurowany dla innego serwera.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await verifyMember(interaction);
+      return;
+    }
+
     if (
       interaction.isButton() &&
       interaction.customId.startsWith('emuplcoom-role:')
@@ -292,11 +297,12 @@ async function startBot() {
       'Łączenie PubgPLEMULATOR z Discordem...',
     );
 
+    await verifyBotToken(token);
     await client.login(token);
   } catch (error) {
     console.error(
       'NIE UDAŁO SIĘ ZALOGOWAĆ DO DISCORDA:',
-      error,
+      error.message,
     );
 
     healthServer.close(() => {

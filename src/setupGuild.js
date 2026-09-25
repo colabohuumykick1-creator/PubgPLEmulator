@@ -367,6 +367,25 @@ function rolePanelComponents() {
   return rows;
 }
 
+function verificationComponents() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('emuplcoom-verify:POLISH')
+        .setLabel('Polski')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('emuplcoom-verify:ENGLISH')
+        .setLabel('English')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('emuplcoom-verify:BOTH')
+        .setLabel('Polski + English')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
 export function starterMessages(roleMap) {
   const memberRole = roleMap.get(ROLE_KEYS.MEMBER);
   const polishRole = roleMap.get(ROLE_KEYS.POLISH);
@@ -375,6 +394,24 @@ export function starterMessages(roleMap) {
   const eventsRole = roleMap.get(ROLE_KEYS.EVENTS);
 
   return [
+    {
+      channelKey: 'VERIFICATION',
+      marker: 'setup:verification:v1',
+      pin: true,
+      embeds: [
+        markerEmbed(
+          'setup:verification:v1',
+          new EmbedBuilder()
+            .setColor(BRAND.color)
+            .setTitle('Secure Verification / Bezpieczna weryfikacja')
+            .setDescription(
+              'Wybierz język, aby zakończyć weryfikację i uzyskać dostęp do serwera.\n' +
+                'Choose a language to complete verification and access the server.',
+            ),
+        ),
+      ],
+      components: verificationComponents(),
+    },
     {
       channelKey: 'WELCOME',
       marker: 'setup:welcome:v1',
@@ -921,5 +958,85 @@ export async function toggleSelfRole(interaction) {
       ? `Usunięto rolę ${role}. / Removed role ${role}.`
       : `Dodano rolę ${role}. / Added role ${role}.`,
     flags: MessageFlags.Ephemeral,
+  });
+}
+
+function configuredRole(guild, key) {
+  const spec = roles.find((role) => role.key === key);
+  return guild.roles.cache.find(
+    (role) =>
+      !role.managed &&
+      (role.name === spec?.name || (spec?.legacyNames ?? []).includes(role.name)),
+  );
+}
+
+export async function assignUnverifiedRole(member) {
+  if (member.user?.bot) {
+    return;
+  }
+
+  const unverifiedRole = configuredRole(member.guild, ROLE_KEYS.UNVERIFIED);
+  const memberRole = configuredRole(member.guild, ROLE_KEYS.MEMBER);
+  const verifiedRole = configuredRole(member.guild, ROLE_KEYS.VERIFIED);
+
+  if (
+    !unverifiedRole?.editable ||
+    member.roles.cache.has(memberRole?.id) ||
+    member.roles.cache.has(verifiedRole?.id) ||
+    member.roles.cache.has(unverifiedRole.id)
+  ) {
+    return;
+  }
+
+  await member.roles.add(unverifiedRole.id, 'Oczekiwanie na weryfikację EMUPLCOOM');
+}
+
+export async function verifyMember(interaction) {
+  const language = interaction.customId.split(':')[1];
+  const languageKeys = {
+    POLISH: [ROLE_KEYS.POLISH],
+    ENGLISH: [ROLE_KEYS.ENGLISH],
+    BOTH: [ROLE_KEYS.POLISH, ROLE_KEYS.ENGLISH],
+  }[language];
+
+  if (!languageKeys) {
+    await interaction.reply({
+      content: 'Nieprawidłowa opcja weryfikacji. / Invalid verification option.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const requiredKeys = [ROLE_KEYS.MEMBER, ROLE_KEYS.VERIFIED, ...languageKeys];
+  const requiredRoles = requiredKeys.map((key) => configuredRole(interaction.guild, key));
+
+  if (requiredRoles.some((role) => !role?.editable)) {
+    throw new Error(
+      'Brakuje wymaganej roli albo bot nie może nią zarządzać. Uruchom /setup i ustaw rolę bota wyżej.',
+    );
+  }
+
+  const member = await interaction.guild.members.fetch(interaction.user.id);
+  await member.roles.add(
+    requiredRoles.map((role) => role.id),
+    'Weryfikacja EMUPLCOOM',
+  );
+
+  const unverifiedRole = configuredRole(interaction.guild, ROLE_KEYS.UNVERIFIED);
+  if (unverifiedRole && member.roles.cache.has(unverifiedRole.id)) {
+    await member.roles.remove(unverifiedRole.id, 'Weryfikacja EMUPLCOOM zakończona');
+  }
+
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(0x57f287)
+        .setTitle('Verification complete / Weryfikacja zakończona')
+        .setDescription(
+          `${interaction.user} ma teraz dostęp do serwera. / You now have access to the server.`,
+        ),
+    ],
   });
 }

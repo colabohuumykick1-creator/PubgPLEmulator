@@ -1,19 +1,8 @@
-import 'dotenv/config';
 import { REST, Routes } from 'discord.js';
 import { commandData } from './commands.js';
+import { getBotConfig } from './env.js';
 
-const token = process.env.DISCORD_TOKEN?.trim();
-const guildId = process.env.GUILD_ID?.trim();
-
-if (!token || token === 'wklej_tutaj_token_bota') {
-  console.error('Brak prawidłowego DISCORD_TOKEN w pliku .env.');
-  process.exit(1);
-}
-
-if (!guildId || !/^\d{17,20}$/.test(guildId)) {
-  console.error('Brak prawidłowego GUILD_ID w pliku .env.');
-  process.exit(1);
-}
+const { token, guildId } = getBotConfig();
 
 try {
   const rest = new REST({ version: '10' }).setToken(token);

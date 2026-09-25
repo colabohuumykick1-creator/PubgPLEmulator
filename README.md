@@ -27,19 +27,16 @@ Bot nie wymaga włączania uprzywilejowanego **Message Content Intent**.
 
 ## 2. Instalacja
 
-W folderze projektu uruchom:
+W folderze projektu skopiuj świeży Bot Token do schowka, a następnie uruchom:
 
 ```powershell
 npm install
-Copy-Item .env.example .env
+powershell -ExecutionPolicy Bypass -File .\setup-env.ps1
 ```
 
-Otwórz `.env` i ustaw:
-
-```dotenv
-DISCORD_TOKEN=token_bota
-GUILD_ID=id_twojego_serwera
-```
+Skrypt sprawdza token bez zapisywania go, tworzy `.env` bez BOM, ponownie
+weryfikuje zapisaną wartość i dopiero wtedy uruchamia bota. Nie wklejaj tokenu
+do kodu, czatu ani repozytorium.
 
 Aby skopiować identyfikator serwera, włącz w Discordzie **Tryb dewelopera**, kliknij serwer prawym przyciskiem i wybierz **Kopiuj identyfikator serwera**.
 
