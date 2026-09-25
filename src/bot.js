@@ -10,7 +10,6 @@ import {
 
 import { BRAND } from './config.js';
 import { commandData } from './commands.js';
-import { verifyBotToken } from './discordAuth.js';
 import { sendEmbedCommand } from './embedCommand.js';
 import { getBotConfig } from './env.js';
 import { startHealthServer } from './healthServer.js';
@@ -297,7 +296,6 @@ async function startBot() {
       'Łączenie PubgPLEMULATOR z Discordem...',
     );
 
-    await verifyBotToken(token);
     await client.login(token);
   } catch (error) {
     console.error(
