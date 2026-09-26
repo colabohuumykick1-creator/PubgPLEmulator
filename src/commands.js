@@ -19,6 +19,14 @@ export const commandData = [
     })
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName('test')
+    .setDescription('Sprawdza, czy bot działa poprawnie przez Render.')
+    .setDescriptionLocalizations({
+      'en-US': 'Checks whether the bot is working correctly through Render.',
+      'en-GB': 'Checks whether the bot is working correctly through Render.',
+    })
+    .setDMPermission(false),
+  new SlashCommandBuilder()
     .setName('embed')
     .setDescription('Wysyła estetyczną wiadomość EMUPLCOOM na wybrany kanał.')
     .setDescriptionLocalizations({

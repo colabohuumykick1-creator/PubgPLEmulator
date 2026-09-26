@@ -30,3 +30,18 @@ test('nieznany endpoint zwraca 404', async (context) => {
 
   assert.equal(response.status, 404);
 });
+
+test('endpoint /health nie zgłasza gotowości przed ClientReady', async (context) => {
+  const client = { isReady: () => false };
+  const server = startHealthServer(client, { port: 0, host: '127.0.0.1', logger: () => {} });
+  context.after(() => server.close());
+
+  await once(server, 'listening');
+  const address = server.address();
+  const response = await fetch(`http://127.0.0.1:${address.port}/health`);
+  const body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.equal(body.status, 'starting');
+  assert.equal(body.discord, 'connecting');
+});

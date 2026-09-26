@@ -8,7 +8,7 @@ Bot aktualizuje istniejącą strukturę serwera Discord dla społeczności emula
 - kanał `#weryfikacja` oraz dostęp do pozostałych kanałów przez rolę `Zweryfikowany`,
 - regulamin, FAQ, powitanie i szablon zgłoszenia problemu,
 - panel ról obsługiwany przyciskami,
-- komendy `/setup` i `/emuplcoom`.
+- komendy `/setup`, `/emuplcoom`, `/test` i `/embed`.
 
 Komenda `/setup` nie usuwa ani nie przenosi kanałów i kategorii. Wyszukuje istniejące elementy po nazwie, aktualizuje ich ustawienia oraz odświeża wiadomości EMUPLCOOM. Na wyraźne życzenie właściciela może utworzyć tylko brakujący kanał `#o-gameloop`; wszystkie inne brakujące kanały są pomijane z ostrzeżeniem.
 
@@ -51,6 +51,9 @@ Po pojawieniu się bota online wpisz na serwerze:
 ```text
 /setup
 ```
+
+Komenda `/test` natychmiast potwierdza, czy aktywna instancja Rendera ma
+połączenie z Discord Gateway.
 
 Jeżeli komenda nie pojawia się na liście Discorda, zarejestruj ją ręcznie i ponownie uruchom bota:
 
@@ -95,6 +98,8 @@ Po wdrożeniu otrzymasz adres podobny do:
 https://emuplcoom-bot.onrender.com/health
 ```
 
-W [cron-job.org](https://cron-job.org/) utwórz zadanie typu `GET` dla tego adresu wykonywane co 10 minut. Odpowiedź powinna mieć kod `200` i status bota.
+Repozytorium zawiera zadanie GitHub Actions, które sprawdza ten adres co 10 minut.
+Możesz je również uruchomić ręcznie w zakładce **Actions → Keep Render bot online**.
+Odpowiedź powinna mieć kod `200` i status `online`.
 
 Render usypia bezpłatny Web Service po 15 minutach bez ruchu przychodzącego. Bezpłatny limit wynosi 750 godzin na cały workspace w miesiącu, dlatego dwa stale działające serwisy mogą wyczerpać limit przed końcem miesiąca.

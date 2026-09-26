@@ -35,7 +35,7 @@ let setupRunning = false;
 async function runSetup(guild, progress = () => {}) {
   if (setupRunning) {
     throw new Error(
-      'Konfiguracja jest już uruchomiona. Poczekaj na jej zakoĹ„czenie.',
+      'Konfiguracja jest już uruchomiona. Poczekaj na jej zakończenie.',
     );
   }
 
@@ -65,17 +65,18 @@ client.once(Events.ClientReady, async (readyClient) => {
   });
 
   try {
-    const guild = await readyClient.guilds.fetch(guildId);
+    const guild = readyClient.guilds.cache.get(guildId);
+
+    if (!guild) {
+      throw new Error(`Bot nie znajduje się na skonfigurowanym serwerze ${guildId}.`);
+    }
 
     console.log(`Połączono z serwerem: ${guild.name} (${guild.id})`);
-
-    await guild.commands.set(commandData);
-
-    console.log('Komendy slash zostały zarejestrowane.');
-    console.log('Bot PubgPLEMULATOR jest gotowy.');
+    console.log(`Załadowano ${commandData.length} komendy slash.`);
+    console.log('Bot PubgPLEMULATOR jest gotowy (ClientReady).');
   } catch (error) {
     console.error(
-      'Bot zalogowaĹ‚ się do Discorda, ale wystÄ…piĹ‚ problem z serwerem lub komendami:',
+      'Bot zalogował się do Discorda, ale wystąpił problem z serwerem:',
       error,
     );
   }
@@ -144,7 +145,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ) {
         await interaction.reply({
           content:
-            'Tej komendy może uĹĽyÄ‡ tylko administrator.',
+            'Tej komendy może użyć tylko administrator.',
           flags: MessageFlags.Ephemeral,
         });
 
@@ -165,7 +166,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
 
       const warningText = report.warnings.length
-        ? `\n\n**OstrzeĹĽenia:**\n${report.warnings
+        ? `\n\n**Ostrzeżenia:**\n${report.warnings
             .map((item) => `• ${item}`)
             .join('\n')}`
         : '';
@@ -175,7 +176,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           new EmbedBuilder()
             .setColor(BRAND.color)
             .setTitle(
-              'PubgPLEMULATOR • konfiguracja zakoĹ„czona âś…',
+              'PubgPLEMULATOR • konfiguracja zakończona ✅',
             )
             .setDescription(
               `Utworzono: **${report.created.length}**\n` +
@@ -192,6 +193,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
+    if (interaction.commandName === 'test') {
+      await interaction.reply({
+        content:
+          '✅ Bot działa poprawnie przez Render.\n' +
+          `Discord Gateway: połączony (${Math.max(0, Math.round(client.ws.ping))} ms).`,
+        flags: MessageFlags.Ephemeral,
+      });
+
+      console.log('[TEST] Komenda /test zakończona powodzeniem.');
+      return;
+    }
+
     if (
       interaction.commandName === 'emuplcoom' ||
       interaction.commandName === 'pubgplemulator'
@@ -200,15 +213,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
         embeds: [
           new EmbedBuilder()
             .setColor(BRAND.accentColor)
-            .setTitle('PubgPLEMULATOR đźŽ®')
+            .setTitle('PubgPLEMULATOR 🎮')
             .setDescription(
-              'Bot spoĹ‚ecznoĹ›ci **PUBG Mobile PL Emulator Center**.\n\n' +
-                'Obsługuje konfiguracjÄ™ serwera, role, wiadomoĹ›ci i narzÄ™dzia administracyjne.',
+              'Bot społeczności **PUBG Mobile PL Emulator Center**.\n\n' +
+                'Obsługuje konfigurację serwera, role, wiadomości i narzędzia administracyjne.',
             )
             .addFields(
               {
                 name: 'Status',
-                value: 'đźź˘ Online',
+                value: '🟢 Online',
                 inline: true,
               },
               {
@@ -234,7 +247,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.error('Błąd interakcji:', error);
 
     const message =
-      `Nie udaĹ‚o się wykonaÄ‡ operacji: ${error.message}`;
+      `Nie udało się wykonać operacji: ${error.message}`;
 
     if (
       interaction.deferred ||
@@ -267,34 +280,34 @@ client.on(Events.Error, (error) => {
 
 client.on(Events.Warn, (warning) => {
   console.warn(
-    'OstrzeĹĽenie Discord:',
+    'Ostrzeżenie Discord:',
     warning,
   );
 });
 
 client.on(Events.ShardDisconnect, (event, shardId) => {
   console.warn(
-    `Discord rozĹ‚Ä…czyĹ‚ shard ${shardId}. Kod: ${event.code}`,
+    `Discord rozłączył shard ${shardId}. Kod: ${event.code}`,
   );
 });
 
 process.on('unhandledRejection', (error) => {
   console.error(
-    'NieobsĹ‚uĹĽony Promise rejection:',
+    'Nieobsłużony Promise rejection:',
     error,
   );
 });
 
 process.on('uncaughtException', (error) => {
   console.error(
-    'NieobsĹ‚uĹĽony wyjÄ…tek:',
+    'Nieobsłużony wyjątek:',
     error,
   );
 });
 
 async function shutdown(signal) {
   console.log(
-    `Odebrano ${signal}. WyĹ‚Ä…czam PubgPLEMULATOR...`,
+    `Odebrano ${signal}. Wyłączam PubgPLEMULATOR...`,
   );
 
   client.destroy();

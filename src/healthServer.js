@@ -1,48 +1,57 @@
-import { createServer } from "node:http";
+import { createServer } from 'node:http';
 
-export function startHealthServer(client) {
-  const port = Number(process.env.PORT || 3001);
-  const host = "0.0.0.0";
+function getPort(value) {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw new Error(`Nieprawidłowa wartość PORT: ${value}`);
+  }
+  return port;
+}
+
+export function startHealthServer(client, options = {}) {
+  const port = getPort(options.port ?? process.env.PORT ?? 3_001);
+  const host = options.host ?? '0.0.0.0';
+  const logger = options.logger ?? console.log;
 
   const server = createServer((request, response) => {
-    if (request.url === "/health") {
-      const ready = Boolean(client?.isReady?.());
+    const path = new URL(request.url ?? '/', 'http://localhost').pathname;
 
-      response.writeHead(ready ? 200 : 503, {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      });
-
-      response.end(
-        JSON.stringify({
-          status: ready ? "ok" : "starting",
-          discord: ready ? "connected" : "connecting",
-          bot: client?.user?.tag ?? null,
-        }),
-      );
-
+    if (request.method !== 'GET') {
+      response.writeHead(405, { 'content-type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify({ error: 'Method Not Allowed' }));
       return;
     }
 
-    response.writeHead(200, {
-      "Content-Type": "text/plain; charset=utf-8",
-    });
+    if (path !== '/' && path !== '/health') {
+      response.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify({ error: 'Not Found' }));
+      return;
+    }
 
+    const ready = Boolean(client?.isReady?.());
+
+    response.writeHead(path === '/health' && !ready ? 503 : 200, {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    });
     response.end(
-      client?.isReady?.()
-        ? "PubgPLEmulator działa poprawnie."
-        : "PubgPLEmulator uruchamia się.",
+      JSON.stringify({
+        service: 'EMUPLCOOM Bot',
+        status: ready ? 'online' : 'starting',
+        discord: ready ? 'connected' : 'connecting',
+        uptimeSeconds: Math.floor(process.uptime()),
+      }),
     );
   });
 
-  server.on("error", (error) => {
-    console.error("Błąd serwera kontrolnego:", error);
+  server.on('error', (error) => {
+    console.error('Błąd serwera kontrolnego:', error);
   });
 
   server.listen(port, host, () => {
-    console.log(
-      `Serwer kontrolny działa na porcie ${port} (/health).`,
-    );
+    const address = server.address();
+    const activePort = typeof address === 'object' && address ? address.port : port;
+    logger(`Serwer kontrolny działa na porcie ${activePort} (/health).`);
   });
 
   return server;
