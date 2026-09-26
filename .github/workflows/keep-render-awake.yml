@@ -17,4 +17,4 @@ jobs:
         run: >-
           curl --fail --silent --show-error
           --max-time 60 --retry 2 --retry-delay 5
-          https://pubgplemulator.onrender.com/health
+          https://pubgplemulator-eu.onrender.com/health
