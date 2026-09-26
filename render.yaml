@@ -1,6 +1,7 @@
 services:
   - type: web
-    name: emuplcoom-bot
+    name: pubgplemulator-eu
+    region: frankfurt
     runtime: node
     plan: free
     buildCommand: npm ci --omit=dev

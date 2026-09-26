@@ -32,6 +32,27 @@ const healthServer = startHealthServer(client);
 
 let setupRunning = false;
 
+async function checkDiscordApiConnection() {
+  const startedAt = Date.now();
+
+  try {
+    const response = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: {
+        Authorization: `Bot ${token}`,
+      },
+      signal: AbortSignal.timeout(5_000),
+    });
+
+    console.log(
+      `[DISCORD API] status=${response.status} latency=${Date.now() - startedAt}ms`,
+    );
+  } catch (error) {
+    console.error(
+      `[DISCORD API] brak odpowiedzi po ${Date.now() - startedAt}ms: ${error.message}`,
+    );
+  }
+}
+
 async function runSetup(guild, progress = () => {}) {
   if (setupRunning) {
     throw new Error(
@@ -74,6 +95,7 @@ client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Połączono z serwerem: ${guild.name} (${guild.id})`);
     console.log(`Załadowano ${commandData.length} komendy slash.`);
     console.log('Bot PubgPLEMULATOR jest gotowy (ClientReady).');
+    void checkDiscordApiConnection();
   } catch (error) {
     console.error(
       'Bot zalogował się do Discorda, ale wystąpił problem z serwerem:',
@@ -357,5 +379,4 @@ async function startBot() {
 }
 
 startBot();
-
 
