@@ -218,6 +218,22 @@ export async function initMusicPlayer(client) {
     },
   );
 
+  player.events.on('debug', (queue, message) => {
+    console.log(
+      '[MUSIC DEBUG] guild=' +
+        (queue?.guild?.id ?? '-') +
+        ' ' +
+        message,
+    );
+  });
+
+  player.events.on('connection', (queue) => {
+    console.log(
+      '[MUSIC] Voice connection utworzone dla guild=' +
+        queue.guild.id,
+    );
+  });
+
   player.events.on(
     'playerStart',
     (queue, track) => {
@@ -499,7 +515,7 @@ export async function handlePlay(interaction) {
   const result =
     await player.play(
       voiceChannel,
-      query,
+      (isYouTubeUrl(query) ? query : `ytsearch:${query}`),
       commonOptions,
     );
 
