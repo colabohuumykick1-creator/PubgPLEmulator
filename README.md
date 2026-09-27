@@ -92,6 +92,12 @@ Projekt zawiera gotowy `render.yaml` i endpoint kontrolny `/health`.
    - `GUILD_ID` — identyfikator serwera Discord.
 5. Poczekaj, aż w logach pojawią się komunikaty o zalogowaniu bota i działaniu `/health`.
 
+### Cookies YouTube dla odtwarzacza muzycznego
+
+Jeżeli YouTube blokuje adres IP Rendera komunikatem `Sign in to confirm you're not a bot`, wyeksportuj cookies YouTube w formacie Netscape z nowej sesji prywatnej/incognito, zamknij tę sesję bez ponownego otwierania YouTube, zakoduj cały plik jako base64 i dodaj wynik w Renderze jako tajną zmienną `YOUTUBE_COOKIES_BASE64`. Najbezpieczniej użyć oddzielnego konta przeznaczonego dla bota. Nie zapisuj cookies w `.env`, repozytorium, logach ani wiadomościach Discord.
+
+Bot zapisuje odkodowane cookies wyłącznie w chronionym pliku tymczasowym instancji, przekazuje jego ścieżkę do `yt-dlp` i usuwa go przy zamknięciu procesu. Po zmianie sekretu wykonaj nowy deploy.
+
 Po wdrożeniu otrzymasz adres podobny do:
 
 ```text

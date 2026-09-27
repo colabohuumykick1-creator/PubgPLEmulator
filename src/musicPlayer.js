@@ -1,4 +1,9 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { unlinkSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   AudioPlayerStatus,
@@ -20,6 +25,7 @@ const PROCESS_TIMEOUT_MS = 45_000;
 let initialized = false;
 let ytDlpPath = null;
 let ffmpegPath = null;
+let youtubeCookiesPath = null;
 
 function isYouTubeUrl(value) {
   try {
@@ -161,8 +167,101 @@ function ytDlpArgs(extraArgs = []) {
     '--force-ipv4',
     '--no-warnings',
     '--no-progress',
+    ...(youtubeCookiesPath
+      ? ['--cookies', youtubeCookiesPath]
+      : []),
     ...extraArgs,
   ];
+}
+
+function removeYouTubeCookiesFile() {
+  if (!youtubeCookiesPath) {
+    return;
+  }
+
+  try {
+    unlinkSync(youtubeCookiesPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.warn(
+        '[MUSIC] Nie udało się usunąć tymczasowego pliku cookies.',
+      );
+    }
+  } finally {
+    youtubeCookiesPath = null;
+  }
+}
+
+async function configureYouTubeCookies() {
+  const encoded = process.env.YOUTUBE_COOKIES_BASE64?.replace(
+    /\s/g,
+    '',
+  );
+
+  if (!encoded) {
+    console.log('[MUSIC] Cookies YouTube: nie skonfigurowano.');
+    return;
+  }
+
+  if (
+    encoded.length > 1_500_000 ||
+    !/^[A-Za-z0-9+/_-]*={0,2}$/.test(encoded)
+  ) {
+    throw new Error(
+      'YOUTUBE_COOKIES_BASE64 nie zawiera prawidłowych danych base64.',
+    );
+  }
+
+  const normalized = encoded
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  const cookies = Buffer.from(normalized, 'base64')
+    .toString('utf8')
+    .replace(/\r\n?/g, '\n');
+  const hasNetscapeHeader =
+    cookies.startsWith('# Netscape HTTP Cookie File\n') ||
+    cookies.startsWith('# HTTP Cookie File\n');
+  const validCookieLines = cookies
+    .split(/\r?\n/)
+    .filter(
+      (line) =>
+        line &&
+        (!line.startsWith('#') ||
+          line.startsWith('#HttpOnly_')) &&
+        line.split('\t').length >= 7,
+    );
+
+  if (
+    !hasNetscapeHeader ||
+    cookies.includes('\0') ||
+    validCookieLines.length === 0
+  ) {
+    throw new Error(
+      'YOUTUBE_COOKIES_BASE64 nie zawiera pliku cookies w formacie Netscape.',
+    );
+  }
+
+  const cookieFilePath = join(
+    tmpdir(),
+    `pubgplemulator-youtube-${randomUUID()}.txt`,
+  );
+
+  await writeFile(
+    cookieFilePath,
+    cookies.endsWith('\n') ? cookies : `${cookies}\n`,
+    {
+      encoding: 'utf8',
+      mode: 0o600,
+      flag: 'wx',
+    },
+  );
+
+  youtubeCookiesPath = cookieFilePath;
+  delete process.env.YOUTUBE_COOKIES_BASE64;
+  process.once('exit', removeYouTubeCookiesFile);
+  console.log(
+    '[MUSIC] Cookies YouTube skonfigurowane bezpiecznie z YOUTUBE_COOKIES_BASE64.',
+  );
 }
 
 async function verifyMediaTools() {
@@ -535,6 +634,7 @@ export async function initMusicPlayer() {
     return;
   }
 
+  await configureYouTubeCookies();
   await verifyMediaTools();
   initialized = true;
   console.log('[MUSIC] Odtwarzacz muzyczny gotowy.');
