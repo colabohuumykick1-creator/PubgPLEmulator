@@ -41,6 +41,15 @@ export const commandData = [
     })
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName('join')
+    .setDescription('Dołącza bota do Twojego kanału głosowego.')
+    .setDescriptionLocalizations({
+      'en-US': 'Joins your current voice channel.',
+      'en-GB': 'Joins your current voice channel.',
+    })
+    .setDMPermission(false),
+
+  new SlashCommandBuilder()
     .setName('play')
     .setDescription('Odtwarza muzykę z linku YouTube, playlisty lub wyszukiwania.')
     .setDMPermission(false)

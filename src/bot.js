@@ -17,6 +17,7 @@ import { startHealthServer } from './healthServer.js';
 import {
   handleBack,
   handleBass,
+  handleJoin,
   handlePause,
   handlePlay,
   handleSkip,
@@ -291,6 +292,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ],
       });
 
+      return;
+    }
+
+    if (interaction.commandName === 'join') {
+      await handleJoin(interaction);
       return;
     }
 

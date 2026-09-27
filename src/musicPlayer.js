@@ -3,6 +3,7 @@ import { DefaultExtractors } from '@discord-player/extractor';
 import {
   YouTubeDlpExtractor,
   setFFmpegPath,
+  setYtDlpPath,
 } from 'discord-player-youtubedlp';
 import ffmpegPath from 'ffmpeg-static';
 
@@ -59,6 +60,20 @@ function requireSameVoiceChannel(interaction) {
   return memberChannel;
 }
 
+
+function configureYtDlp() {
+  if (process.platform === 'win32') {
+    setYtDlpPath('yt-dlp');
+    console.log('[MUSIC] Systemowy yt-dlp: yt-dlp');
+    return;
+  }
+
+  // Na hostingu pozostawiamy fallback extractora.
+  console.log(
+    '[MUSIC] Linux/Render: używam yt-dlp dostępnego dla extractora.',
+  );
+}
+
 export async function initMusicPlayer(client) {
   if (initialized) {
     return player;
@@ -69,6 +84,8 @@ export async function initMusicPlayer(client) {
     process.env.FFMPEG_PATH = ffmpegPath;
   }
 
+  configureYtDlp();
+
   player = new Player(client);
 
   await player.extractors.loadMulti(
@@ -78,9 +95,14 @@ export async function initMusicPlayer(client) {
   await player.extractors.register(
     YouTubeDlpExtractor,
     {
-      searchLimit: 1,
+      searchLimit: 3,
       playlistSearchLimit: 200,
-      debug: false,
+      searchTimeoutMs: 10000,
+      videoTimeoutMs: 15000,
+      playlistTimeoutMs: 30000,
+      ytdlpTimeoutMs: 30000,
+      enableProtocols: true,
+      debug: true,
     },
   );
 
@@ -150,6 +172,81 @@ export async function initMusicPlayer(client) {
   );
 
   return player;
+}
+
+
+export async function handleJoin(interaction) {
+  if (!player) {
+    throw new Error(
+      'Odtwarzacz muzyczny nie został jeszcze zainicjalizowany.',
+    );
+  }
+
+  const voiceChannel =
+    requireVoiceChannel(interaction);
+
+  const botChannel =
+    interaction.guild.members.me?.voice?.channel;
+
+  if (botChannel?.id === voiceChannel.id) {
+    await interaction.reply({
+      content:
+        `✅ Już jestem na kanale **${voiceChannel.name}**.`,
+    });
+
+    return;
+  }
+
+  if (
+    botChannel &&
+    botChannel.id !== voiceChannel.id
+  ) {
+    throw new Error(
+      'Bot jest już połączony z innym kanałem głosowym.',
+    );
+  }
+
+  let queue =
+    player.nodes.get(interaction.guildId);
+
+  if (!queue) {
+    queue = player.nodes.create(
+      interaction.guild,
+      {
+        metadata: {
+          textChannel:
+            interaction.channel,
+        },
+
+        selfDeaf: true,
+        volume: 70,
+
+        leaveOnEmpty: true,
+        leaveOnEmptyCooldown: 60_000,
+
+        leaveOnEnd: false,
+        leaveOnStop: true,
+        leaveOnStopCooldown: 5_000,
+
+        maxHistorySize: 50,
+        disableHistory: false,
+      },
+    );
+  }
+
+  if (!queue.connection) {
+    await queue.connect(
+      voiceChannel,
+      {
+        deaf: true,
+      },
+    );
+  }
+
+  await interaction.reply({
+    content:
+      `🔊 Dołączyłem do **${voiceChannel.name}**.`,
+  });
 }
 
 export async function handlePlay(interaction) {
