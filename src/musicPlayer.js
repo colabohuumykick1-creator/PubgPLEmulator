@@ -21,6 +21,8 @@ import youtubeDl from 'youtube-dl-exec';
 const guildPlayers = new Map();
 const MAX_PLAYLIST_TRACKS = 200;
 const PROCESS_TIMEOUT_MS = 45_000;
+const MIN_SUCCESSFUL_PLAYBACK_MS = 2_000;
+const PIPELINE_ERROR_GRACE_MS = 1_500;
 
 let initialized = false;
 let ytDlpPath = null;
@@ -167,6 +169,10 @@ function ytDlpArgs(extraArgs = []) {
     '--force-ipv4',
     '--no-warnings',
     '--no-progress',
+    '--extractor-args',
+    youtubeCookiesPath
+      ? 'youtube:player_client=web_safari,web'
+      : 'youtube:player_client=android_vr,web_safari,web_embedded',
     ...(youtubeCookiesPath
       ? ['--cookies', youtubeCookiesPath]
       : []),
@@ -373,7 +379,7 @@ function createTrackResource(state, track) {
   const sourceArgs = ytDlpArgs([
     '--no-playlist',
     '-f',
-    'bestaudio/best',
+    'bestaudio[protocol^=m3u8]/bestaudio[protocol*=m3u8]/bestaudio/best',
     '-o',
     '-',
     '--',
@@ -423,6 +429,10 @@ function createTrackResource(state, track) {
   state.ytDlpProcess = ytDlpProcess;
   state.ffmpegProcess = ffmpegProcess;
   state.pipelineError = '';
+  state.pipelineSettled = Promise.allSettled([
+    new Promise((resolve) => ytDlpProcess.once('close', resolve)),
+    new Promise((resolve) => ffmpegProcess.once('close', resolve)),
+  ]);
 
   let ytDlpError = '';
   let ffmpegError = '';
@@ -488,7 +498,10 @@ function playNext(state) {
   const track = state.queue.shift();
 
   if (!track) {
-    sendMessage(state, '✅ Kolejka muzyczna została zakończona.');
+    if (!state.suppressQueueFinishedOnce) {
+      sendMessage(state, '✅ Kolejka muzyczna została zakończona.');
+    }
+    state.suppressQueueFinishedOnce = false;
     return;
   }
 
@@ -523,7 +536,10 @@ function buildState(guild, textChannel) {
     ytDlpProcess: null,
     ffmpegProcess: null,
     pipelineError: '',
+    pipelineSettled: null,
+    suppressQueueFinishedOnce: false,
     suppressHistoryOnce: false,
+    intentionalStopOnce: false,
     bassLevel: 'off',
     startedAt: 0,
   };
@@ -544,26 +560,57 @@ function buildState(guild, textChannel) {
     );
   });
 
-  player.on(AudioPlayerStatus.Idle, () => {
+  player.on(AudioPlayerStatus.Idle, async () => {
     const finishedTrack = state.current;
+    const playbackDuration = state.resource?.playbackDuration ?? 0;
+    const intentionalStop = state.intentionalStopOnce;
+
+    if (
+      finishedTrack &&
+      playbackDuration < MIN_SUCCESSFUL_PLAYBACK_MS &&
+      state.pipelineSettled
+    ) {
+      await Promise.race([
+        state.pipelineSettled,
+        new Promise((resolve) =>
+          setTimeout(resolve, PIPELINE_ERROR_GRACE_MS),
+        ),
+      ]);
+    }
+
     const pipelineError = state.pipelineError;
 
     stopPipeline(state);
     state.current = null;
     state.resource = null;
     state.pipelineError = '';
+    state.pipelineSettled = null;
+    state.intentionalStopOnce = false;
 
-    if (finishedTrack && !state.suppressHistoryOnce) {
+    const failedBeforePlayback =
+      !intentionalStop &&
+      Boolean(finishedTrack) &&
+      playbackDuration < MIN_SUCCESSFUL_PLAYBACK_MS;
+
+    if (
+      finishedTrack &&
+      !failedBeforePlayback &&
+      !state.suppressHistoryOnce
+    ) {
       state.history.push({ ...finishedTrack, seekSeconds: 0 });
       state.history = state.history.slice(-50);
     }
 
     state.suppressHistoryOnce = false;
 
-    if (pipelineError) {
+    if (pipelineError || failedBeforePlayback) {
+      state.suppressQueueFinishedOnce = state.queue.length === 0;
       sendMessage(
         state,
-        `❌ Błąd strumienia **${finishedTrack?.title ?? 'YouTube'}**: ${pipelineError}`,
+        `❌ Nie udało się uruchomić **${finishedTrack?.title ?? 'YouTube'}**: ${
+          pipelineError ||
+          'YouTube nie udostępnił działającego strumienia. Spróbuj innego utworu.'
+        }`,
       );
     }
 
@@ -719,6 +766,7 @@ export async function handleSkip(interaction) {
 
   requireSameVoiceChannel(interaction);
   const title = state.current.title;
+  state.intentionalStopOnce = true;
   state.player.stop(true);
 
   await interaction.reply({
@@ -745,6 +793,7 @@ export async function handleBack(interaction) {
     { ...state.current, seekSeconds: 0 },
   );
   state.suppressHistoryOnce = true;
+  state.intentionalStopOnce = true;
   state.player.stop(true);
 
   await interaction.reply({
@@ -786,6 +835,7 @@ export async function handleBass(interaction) {
   state.bassLevel = level;
   state.queue.unshift(current);
   state.suppressHistoryOnce = true;
+  state.intentionalStopOnce = true;
   state.player.stop(true);
 
   await interaction.reply({
