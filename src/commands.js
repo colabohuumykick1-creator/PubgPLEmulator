@@ -11,6 +11,28 @@ export const commandData = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName('setup-help')
+    .setDescription('Aktualizuje tylko wiadomość na kanale Emulator Help.')
+    .setDescriptionLocalizations({
+      'en-US': 'Updates only the Emulator Help message.',
+      'en-GB': 'Updates only the Emulator Help message.',
+      ru: 'Обновляет только сообщение Emulator Help.',
+    })
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false),
+
+  new SlashCommandBuilder()
+    .setName('setup-verification')
+    .setDescription('Aktualizuje tylko panel weryfikacji językowej.')
+    .setDescriptionLocalizations({
+      'en-US': 'Updates only the language verification panel.',
+      'en-GB': 'Updates only the language verification panel.',
+      ru: 'Обновляет только панель языковой проверки.',
+    })
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDMPermission(false),
+
+  new SlashCommandBuilder()
     .setName('emuplcoom')
     .setDescription('Pokazuje informacje o bocie i serwerze.')
     .setDescriptionLocalizations({

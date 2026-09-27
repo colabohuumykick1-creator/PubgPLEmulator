@@ -15,6 +15,7 @@ import {
 import {
   BRAND,
   ROLE_KEYS,
+  RUSSIAN_ROLE_ID,
   categories,
   channels,
   roles,
@@ -380,6 +381,11 @@ function verificationComponents() {
         .setLabel('English')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
+        .setCustomId('emuplcoom-verify:RUSSIAN')
+        .setLabel('Русский')
+        .setEmoji('🇷🇺')
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
         .setCustomId('emuplcoom-verify:BOTH')
         .setLabel('Polski + English')
         .setStyle(ButtonStyle.Secondary),
@@ -406,8 +412,9 @@ export function starterMessages(roleMap) {
             .setColor(BRAND.color)
             .setTitle('Secure Verification / Bezpieczna weryfikacja')
             .setDescription(
-              'Wybierz język, aby zakończyć weryfikację i uzyskać dostęp do serwera.\n' +
-                'Choose a language to complete verification and access the server.',
+              '🇵🇱 Wybierz język, aby zakończyć weryfikację i uzyskać dostęp do serwera.\n' +
+                '🇬🇧 Choose a language to complete verification and access the server.\n' +
+                '🇷🇺 Выберите язык, чтобы завершить проверку и получить доступ к серверу.',
             ),
         ),
       ],
@@ -595,8 +602,11 @@ export function starterMessages(roleMap) {
             .setTitle('Jak poprosić o pomoc? / How to ask for help 🧰')
             .setDescription(
               '🇵🇱 **Skopiuj i uzupełnij:**\n```text\nGameLoop i wersja:\nSystem:\nProcesor / karta graficzna:\nGra:\nOpis problemu:\nWykonane próby naprawy:\nKomunikat błędu / log:\n```\n' +
-                '🇬🇧 **Copy and complete:**\n```text\nGameLoop version:\nOperating system:\nCPU / GPU:\nGame:\nProblem description:\nFixes already attempted:\nError message / log:\n```\n' +
-                '🔒 Nie publikuj haseł, tokenów ani danych prywatnych. / Never share passwords, tokens or private information.',
+                '🇬🇧 **Copy and complete:**\n```text\nGameLoop version:\nOperating system:\nCPU / GPU:\nGame:\nProblem description:\nFixes already attempted:\nError message / log:\n```\n\n' +
+                '🇷🇺 **Скопируйте и заполните:**\n```text\nGameLoop и версия:\nОперационная система:\nПроцессор / видеокарта:\nИгра:\nОписание проблемы:\nЧто уже пробовали сделать:\nСообщение об ошибке / лог:\n```\n\n' +
+                '🔒 🇵🇱 Nie publikuj haseł, tokenów ani danych prywatnych.\n' +
+                '🔒 🇬🇧 Never share passwords, tokens or private information.\n' +
+                '🔒 🇷🇺 Не публикуйте пароли, токены или личные данные.',
             ),
         ),
       ],
@@ -997,6 +1007,7 @@ export async function verifyMember(interaction) {
   const languageKeys = {
     POLISH: [ROLE_KEYS.POLISH],
     ENGLISH: [ROLE_KEYS.ENGLISH],
+    RUSSIAN: [],
     BOTH: [ROLE_KEYS.POLISH, ROLE_KEYS.ENGLISH],
   }[language];
 
@@ -1030,9 +1041,40 @@ export async function verifyMember(interaction) {
     .map((key) => configuredRole(interaction.guild, key))
     .filter((role) => role?.editable);
 
-  const member = await interaction.guild.members.fetch(interaction.user.id);
+  const russianRoles = [];
+
+  if (language === 'RUSSIAN') {
+    const russianRole =
+      interaction.guild.roles.cache.get(RUSSIAN_ROLE_ID) ??
+      (await interaction.guild.roles
+        .fetch(RUSSIAN_ROLE_ID)
+        .catch(() => null));
+
+    if (!russianRole) {
+      throw new Error(
+        `Nie znaleziono roli RU Russia (${RUSSIAN_ROLE_ID}).`,
+      );
+    }
+
+    if (!russianRole.editable) {
+      throw new Error(
+        `Rola bota musi być wyżej niż @${russianRole.name}.`,
+      );
+    }
+
+    russianRoles.push(russianRole.id);
+  }
+
+  const member = await interaction.guild.members.fetch(
+    interaction.user.id,
+  );
+
   await member.roles.add(
-    [verificationRole.id, ...languageRoles.map((role) => role.id)],
+    [
+      verificationRole.id,
+      ...languageRoles.map((role) => role.id),
+      ...russianRoles,
+    ],
     'Weryfikacja EMUPLCOOM',
   );
 
@@ -1045,9 +1087,11 @@ export async function verifyMember(interaction) {
     embeds: [
       new EmbedBuilder()
         .setColor(0x57f287)
-        .setTitle('Verification complete / Weryfikacja zakończona')
+        .setTitle(
+          'Verification complete / Weryfikacja zakończona / Проверка завершена',
+        )
         .setDescription(
-          `${interaction.user} ma teraz dostęp do serwera. / You now have access to the server.`,
+          `${interaction.user} ma teraz dostęp do serwera. / You now have access to the server. / Теперь у вас есть доступ к серверу.`,
         ),
     ],
   });

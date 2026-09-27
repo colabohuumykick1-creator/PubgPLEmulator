@@ -15,6 +15,10 @@ import { getBotConfig } from './env.js';
 import { useSingleShardGateway } from './gateway.js';
 import { startHealthServer } from './healthServer.js';
 import { setupGuild, toggleSelfRole, verifyMember } from './setupGuild.js';
+import {
+  setupHelpChannel,
+  setupVerificationChannel,
+} from './specialSetup.js';
 
 const { token, guildId } = getBotConfig();
 
@@ -145,6 +149,70 @@ client.on(Events.InteractionCreate, async (interaction) => {
         content:
           'Ten bot jest skonfigurowany dla innego serwera.',
         flags: MessageFlags.Ephemeral,
+      });
+
+      return;
+    }
+
+    if (interaction.commandName === 'setup-help') {
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.Administrator,
+        )
+      ) {
+        await interaction.reply({
+          content: 'Tej komendy może użyć tylko administrator.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await interaction.deferReply({
+        flags: MessageFlags.Ephemeral,
+      });
+
+      const result = await setupHelpChannel(
+        interaction.guild,
+      );
+
+      await interaction.editReply({
+        content:
+          '✅ Zaktualizowano tylko Emulator Help: #' +
+          result.channelName,
+      });
+
+      return;
+    }
+
+    if (
+      interaction.commandName === 'setup-verification'
+    ) {
+      if (
+        !interaction.memberPermissions?.has(
+          PermissionFlagsBits.Administrator,
+        )
+      ) {
+        await interaction.reply({
+          content: 'Tej komendy może użyć tylko administrator.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      await interaction.deferReply({
+        flags: MessageFlags.Ephemeral,
+      });
+
+      const result =
+        await setupVerificationChannel(
+          interaction.guild,
+        );
+
+      await interaction.editReply({
+        content:
+          '✅ Zaktualizowano tylko panel weryfikacji: #' +
+          result.channelName +
+          '. Dodano 🇷🇺 Русский.',
       });
 
       return;
