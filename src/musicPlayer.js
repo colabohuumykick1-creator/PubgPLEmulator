@@ -45,6 +45,15 @@ function isYouTubeUrl(value) {
   }
 }
 
+function isHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function isPlaylistUrl(value) {
   if (!isYouTubeUrl(value)) {
     return false;
@@ -318,7 +327,10 @@ function entryToTrack(entry, fallbackUrl) {
 
 async function resolveTracks(query) {
   const playlist = isPlaylistUrl(query);
-  const target = isYouTubeUrl(query) ? query : `ytsearch1:${query}`;
+  // Render's shared IP addresses are frequently challenged by YouTube.
+  // SoundCloud search works without account cookies and still allows direct
+  // YouTube/SoundCloud links when the user explicitly supplies one.
+  const target = isHttpUrl(query) ? query : `scsearch1:${query}`;
   const args = ytDlpArgs([
     '--dump-single-json',
     '--flat-playlist',
