@@ -14,6 +14,14 @@ import { sendEmbedCommand } from './embedCommand.js';
 import { getBotConfig } from './env.js';
 import { useSingleShardGateway } from './gateway.js';
 import { startHealthServer } from './healthServer.js';
+import {
+  handleBack,
+  handleBass,
+  handlePause,
+  handlePlay,
+  handleSkip,
+  initMusicPlayer,
+} from './musicPlayer.js';
 import { setupGuild, toggleSelfRole, verifyMember } from './setupGuild.js';
 import {
   setupHelpChannel,
@@ -25,6 +33,7 @@ const { token, guildId } = getBotConfig();
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
   ],
   shards: [0],
   shardCount: 1,
@@ -97,6 +106,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     }
 
     console.log(`Połączono z serwerem: ${guild.name} (${guild.id})`);
+    await initMusicPlayer(readyClient);
+
     console.log(`Załadowano ${commandData.length} komendy slash.`);
     console.log('Bot PubgPLEMULATOR jest gotowy (ClientReady).');
     void checkDiscordApiConnection();
@@ -280,6 +291,31 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ],
       });
 
+      return;
+    }
+
+    if (interaction.commandName === 'play') {
+      await handlePlay(interaction);
+      return;
+    }
+
+    if (interaction.commandName === 'pause') {
+      await handlePause(interaction);
+      return;
+    }
+
+    if (interaction.commandName === 'skip') {
+      await handleSkip(interaction);
+      return;
+    }
+
+    if (interaction.commandName === 'back') {
+      await handleBack(interaction);
+      return;
+    }
+
+    if (interaction.commandName === 'bass') {
+      await handleBass(interaction);
       return;
     }
 

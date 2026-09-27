@@ -9,14 +9,19 @@
     "start": "node src/bot.js",
     "dev": "node --watch src/bot.js",
     "register": "node src/registerCommands.js",
-    "check": "node --check src/bot.js && node --check src/setupGuild.js && node --check src/config.js && node --check src/commands.js && node --check src/registerCommands.js && node --check src/healthServer.js && node --check src/embedCommand.js && node --check src/env.js && node --check src/gateway.js",
+    "check": "node --check src/bot.js && node --check src/musicPlayer.js && node --check src/setupGuild.js && node --check src/config.js && node --check src/commands.js && node --check src/registerCommands.js && node --check src/healthServer.js && node --check src/embedCommand.js && node --check src/env.js && node --check src/gateway.js",
     "test": "node --test"
   },
   "engines": {
     "node": ">=22.12.0"
   },
   "dependencies": {
+    "@discord-player/extractor": "^7.2.0",
+    "@discordjs/voice": "^0.19.2",
+    "discord-player": "^7.2.0",
+    "discord-player-youtubedlp": "^1.2.2",
     "discord.js": "^14.26.2",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "ffmpeg-static": "^5.3.0"
   }
 }

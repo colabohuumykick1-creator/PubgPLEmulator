@@ -41,6 +41,50 @@ export const commandData = [
     })
     .setDMPermission(false),
   new SlashCommandBuilder()
+    .setName('play')
+    .setDescription('Odtwarza muzykę z linku YouTube, playlisty lub wyszukiwania.')
+    .setDMPermission(false)
+    .addStringOption((option) =>
+      option
+        .setName('query')
+        .setDescription('Link YouTube, playlista lub nazwa utworu.')
+        .setMaxLength(2_000)
+        .setRequired(true),
+    ),
+
+  new SlashCommandBuilder()
+    .setName('pause')
+    .setDescription('Wstrzymuje lub wznawia muzykę.')
+    .setDMPermission(false),
+
+  new SlashCommandBuilder()
+    .setName('skip')
+    .setDescription('Pomija aktualny utwór.')
+    .setDMPermission(false),
+
+  new SlashCommandBuilder()
+    .setName('back')
+    .setDescription('Wraca do poprzedniego utworu.')
+    .setDMPermission(false),
+
+  new SlashCommandBuilder()
+    .setName('bass')
+    .setDescription('Ustawia poziom basu.')
+    .setDMPermission(false)
+    .addStringOption((option) =>
+      option
+        .setName('poziom')
+        .setDescription('Poziom podbicia basu.')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Wyłączony', value: 'off' },
+          { name: 'Niski', value: 'low' },
+          { name: 'Średni', value: 'medium' },
+          { name: 'Mocny', value: 'high' },
+        ),
+    ),
+
+  new SlashCommandBuilder()
     .setName('test')
     .setDescription('Sprawdza, czy bot działa poprawnie przez Render.')
     .setDescriptionLocalizations({
