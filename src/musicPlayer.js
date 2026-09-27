@@ -1,4 +1,10 @@
 import { Player } from 'discord-player';
+import {
+  VoiceConnectionStatus,
+  entersState,
+  getVoiceConnection,
+  joinVoiceChannel,
+} from '@discordjs/voice';
 import { DefaultExtractors } from '@discord-player/extractor';
 import {
   YouTubeDlpExtractor,
@@ -176,76 +182,52 @@ export async function initMusicPlayer(client) {
 
 
 export async function handleJoin(interaction) {
-  if (!player) {
-    throw new Error(
-      'Odtwarzacz muzyczny nie został jeszcze zainicjalizowany.',
-    );
-  }
-
   const voiceChannel =
     requireVoiceChannel(interaction);
 
-  const botChannel =
-    interaction.guild.members.me?.voice?.channel;
+  await interaction.deferReply();
 
-  if (botChannel?.id === voiceChannel.id) {
-    await interaction.reply({
-      content:
-        `✅ Już jestem na kanale **${voiceChannel.name}**.`,
-    });
+  const existingConnection =
+    getVoiceConnection(interaction.guild.id);
 
-    return;
+  if (existingConnection) {
+    existingConnection.destroy();
   }
 
-  if (
-    botChannel &&
-    botChannel.id !== voiceChannel.id
-  ) {
+  const connection = joinVoiceChannel({
+    channelId: voiceChannel.id,
+    guildId: interaction.guild.id,
+    adapterCreator:
+      interaction.guild.voiceAdapterCreator,
+    selfDeaf: true,
+    selfMute: false,
+  });
+
+  console.log(
+    `[MUSIC] Łączenie z voice: ${voiceChannel.name} (${voiceChannel.id})`,
+  );
+
+  try {
+    await entersState(
+      connection,
+      VoiceConnectionStatus.Ready,
+      15_000,
+    );
+  } catch (error) {
+    connection.destroy();
+
     throw new Error(
-      'Bot jest już połączony z innym kanałem głosowym.',
+      `Nie udało się połączyć z kanałem głosowym: ${error.message}`,
     );
   }
 
-  let queue =
-    player.nodes.get(interaction.guildId);
+  console.log(
+    `[MUSIC] Voice połączony: ${voiceChannel.name}`,
+  );
 
-  if (!queue) {
-    queue = player.nodes.create(
-      interaction.guild,
-      {
-        metadata: {
-          textChannel:
-            interaction.channel,
-        },
-
-        selfDeaf: true,
-        volume: 70,
-
-        leaveOnEmpty: true,
-        leaveOnEmptyCooldown: 60_000,
-
-        leaveOnEnd: false,
-        leaveOnStop: true,
-        leaveOnStopCooldown: 5_000,
-
-        maxHistorySize: 50,
-        disableHistory: false,
-      },
-    );
-  }
-
-  if (!queue.connection) {
-    await queue.connect(
-      voiceChannel,
-      {
-        deaf: true,
-      },
-    );
-  }
-
-  await interaction.reply({
+  await interaction.editReply({
     content:
-      `🔊 Dołączyłem do **${voiceChannel.name}**.`,
+      `🔊 Dołączyłem do kanału **${voiceChannel.name}**.`,
   });
 }
 
