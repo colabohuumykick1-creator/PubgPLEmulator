@@ -666,10 +666,13 @@ function buildState(guild, textChannel) {
   player.on(AudioPlayerStatus.Playing, () => {
     const track = state.current;
 
-    if (!track) {
+    // Zdarzenie Playing pojawia się też po każdym wznowieniu (pauza,
+    // chwilowe zerwanie połączenia głosowego), więc ogłaszamy utwór raz.
+    if (!track || track.announced) {
       return;
     }
 
+    track.announced = true;
     console.log(`[MUSIC] Discord voice playing: ${track.title}`);
     sendMessage(
       state,
@@ -716,7 +719,7 @@ function buildState(guild, textChannel) {
       !failedBeforePlayback &&
       !state.suppressHistoryOnce
     ) {
-      state.history.push({ ...finishedTrack, seekSeconds: 0 });
+      state.history.push({ ...finishedTrack, seekSeconds: 0, announced: false });
       state.history = state.history.slice(-50);
     }
 
@@ -785,6 +788,14 @@ async function connectState(interaction, voiceChannel) {
 
   connection.on('error', (error) => {
     console.error('[MUSIC] Voice connection error:', error);
+  });
+
+  connection.on('stateChange', (oldState, newState) => {
+    if (oldState.status !== newState.status) {
+      console.log(
+        `[MUSIC] Połączenie głosowe: ${oldState.status} -> ${newState.status}`,
+      );
+    }
   });
 
   // Po wyrzuceniu bota z kanału lub zerwaniu połączenia czyścimy stan,
@@ -939,8 +950,8 @@ export async function handleBack(interaction) {
   }
 
   state.queue.unshift(
-    { ...previous, seekSeconds: 0 },
-    { ...state.current, seekSeconds: 0 },
+    { ...previous, seekSeconds: 0, announced: false },
+    { ...state.current, seekSeconds: 0, announced: false },
   );
   state.suppressHistoryOnce = true;
   state.intentionalStopOnce = true;
