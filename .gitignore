@@ -3,4 +3,5 @@ node_modules/
 .env.local
 .env.*.local
 *.log
-
+bot-log.txt
+wyslij-log.txt

@@ -28,6 +28,7 @@ let initialized = false;
 let ytDlpPath = null;
 let ffmpegPath = null;
 let youtubeCookiesPath = null;
+let jsRuntimeSupported = false;
 
 function isYouTubeUrl(value) {
   try {
@@ -174,14 +175,29 @@ function runProcess(command, args, timeoutMs = PROCESS_TIMEOUT_MS) {
 }
 
 function ytDlpArgs(extraArgs = []) {
+  // Nowe wersje yt-dlp potrzebują silnika JavaScript do rozwiązywania
+  // zabezpieczeń YouTube. Używamy tego samego Node.js, na którym działa bot,
+  // i zostawiamy yt-dlp wybór klienta YouTube. Stare wersje (bez tej opcji)
+  // dostają dotychczasową listę klientów.
+  const playerClient =
+    process.env.YTDLP_PLAYER_CLIENT?.trim() ||
+    (jsRuntimeSupported
+      ? ''
+      : youtubeCookiesPath
+        ? 'web_safari,web'
+        : 'android_vr,web_safari,web_embedded');
+
   return [
     '--force-ipv4',
     '--no-warnings',
     '--no-progress',
-    '--extractor-args',
-    youtubeCookiesPath
-      ? 'youtube:player_client=web_safari,web'
-      : 'youtube:player_client=android_vr,web_safari,web_embedded',
+    ...(jsRuntimeSupported
+      ? ['--js-runtimes', `node:${process.execPath}`]
+      : []),
+    ...(ffmpegPath ? ['--ffmpeg-location', ffmpegPath] : []),
+    ...(playerClient
+      ? ['--extractor-args', `youtube:player_client=${playerClient}`]
+      : []),
     ...(youtubeCookiesPath
       ? ['--cookies', youtubeCookiesPath]
       : []),
@@ -292,12 +308,54 @@ async function verifyMediaTools() {
     throw new Error('Nie znaleziono binarki yt-dlp.');
   }
 
-  const [ytDlpVersion] = await Promise.all([
-    runProcess(ytDlpPath, ['--version'], 15_000),
-    runProcess(ffmpegPath, ['-version'], 15_000),
-  ]);
+  await runProcess(ffmpegPath, ['-version'], 15_000);
+
+  // YouTube często zmienia zabezpieczenia, a stary yt-dlp przestaje działać.
+  // Aktualizacja przy starcie jest opcjonalna i nigdy nie blokuje bota.
+  if (process.env.YTDLP_AUTO_UPDATE !== 'false') {
+    try {
+      const updateOutput = await runProcess(ytDlpPath, ['-U'], 90_000);
+      console.log(
+        `[MUSIC] Aktualizacja yt-dlp: ${
+          updateOutput.split(/\r?\n/).pop() || 'OK'
+        }`,
+      );
+    } catch (error) {
+      console.warn(
+        `[MUSIC] Nie udało się zaktualizować yt-dlp: ${trimProcessError(
+          error.message,
+        )}`,
+      );
+    }
+  }
+
+  const ytDlpVersion = await runProcess(
+    ytDlpPath,
+    ['--version'],
+    15_000,
+  );
+
+  try {
+    await runProcess(
+      ytDlpPath,
+      ['--js-runtimes', `node:${process.execPath}`, '--version'],
+      15_000,
+    );
+    jsRuntimeSupported = true;
+  } catch {
+    jsRuntimeSupported = false;
+    console.warn(
+      '[MUSIC] Ta wersja yt-dlp nie obsługuje --js-runtimes. ' +
+        'Zaktualizuj yt-dlp, inaczej YouTube może nie działać.',
+    );
+  }
 
   console.log(`[MUSIC] yt-dlp: ${ytDlpPath} (${ytDlpVersion})`);
+  console.log(
+    `[MUSIC] Silnik JS dla YouTube: ${
+      jsRuntimeSupported ? `Node ${process.version}` : 'brak'
+    }`,
+  );
   console.log(`[MUSIC] FFmpeg: ${ffmpegPath}`);
 }
 
@@ -307,13 +365,21 @@ function entryToTrack(entry, fallbackUrl) {
   }
 
   const id = entry.id;
+  const isYouTubeEntry = /youtube/i.test(
+    entry.ie_key || entry.extractor_key || entry.extractor || '',
+  );
+  // W trybie --flat-playlist adres utworu jest w polu "url". Link YouTube
+  // budujemy z id tylko dla wpisów, które naprawdę pochodzą z YouTube.
   const webpageUrl =
     entry.webpage_url ||
     entry.original_url ||
-    (id ? `https://www.youtube.com/watch?v=${id}` : null) ||
+    (isHttpUrl(entry.url) ? entry.url : null) ||
+    (id && isYouTubeEntry
+      ? `https://www.youtube.com/watch?v=${id}`
+      : null) ||
     fallbackUrl;
 
-  if (!webpageUrl) {
+  if (!webpageUrl || !isHttpUrl(webpageUrl)) {
     return null;
   }
 
@@ -325,17 +391,23 @@ function entryToTrack(entry, fallbackUrl) {
   };
 }
 
-async function resolveTracks(query) {
-  const playlist = isPlaylistUrl(query);
-  // Render's shared IP addresses are frequently challenged by YouTube.
-  // SoundCloud search works without account cookies and still allows direct
-  // YouTube/SoundCloud links when the user explicitly supplies one.
-  const target = isHttpUrl(query) ? query : `scsearch1:${query}`;
+function friendlyYouTubeError(message) {
+  if (/sign in to confirm|not a bot|cookies/i.test(message)) {
+    return (
+      'YouTube zablokował ten adres IP (weryfikacja „nie jestem botem”). ' +
+      'Ustaw zmienną YOUTUBE_COOKIES_BASE64 z plikiem cookies z YouTube.'
+    );
+  }
+
+  return trimProcessError(message);
+}
+
+async function fetchTracks(target, limit) {
   const args = ytDlpArgs([
     '--dump-single-json',
     '--flat-playlist',
     '--playlist-end',
-    String(playlist ? MAX_PLAYLIST_TRACKS : 1),
+    String(limit),
     '--',
     target,
   ]);
@@ -344,18 +416,53 @@ async function resolveTracks(query) {
   const entries = Array.isArray(metadata.entries)
     ? metadata.entries
     : [metadata];
-  const tracks = entries
-    .map((entry) => entryToTrack(entry, query))
-    .filter(Boolean);
-
-  if (tracks.length === 0) {
-    throw new Error('Nie znaleziono utworu.');
-  }
+  const fallbackUrl = isHttpUrl(target) ? target : null;
 
   return {
-    tracks,
-    playlistTitle: playlist ? metadata.title || 'YouTube' : null,
+    metadata,
+    tracks: entries
+      .map((entry) => entryToTrack(entry, fallbackUrl))
+      .filter(Boolean),
   };
+}
+
+async function resolveTracks(query) {
+  const playlist = isPlaylistUrl(query);
+  // Linki są przekazywane bez zmian. Sam tekst szukamy najpierw na YouTube,
+  // a dopiero gdy YouTube odmówi – na SoundCloud.
+  const targets = isHttpUrl(query)
+    ? [query]
+    : [`ytsearch1:${query}`, `scsearch1:${query}`];
+  let lastError = null;
+
+  for (const target of targets) {
+    try {
+      const { metadata, tracks } = await fetchTracks(
+        target,
+        playlist ? MAX_PLAYLIST_TRACKS : 1,
+      );
+
+      if (tracks.length > 0) {
+        return {
+          tracks,
+          playlistTitle: playlist ? metadata.title || 'YouTube' : null,
+        };
+      }
+    } catch (error) {
+      lastError = error;
+      console.error(
+        `[MUSIC] Wyszukiwanie ${target} nie powiodło się: ${trimProcessError(
+          error.message,
+        )}`,
+      );
+    }
+  }
+
+  if (lastError) {
+    throw new Error(friendlyYouTubeError(lastError.message));
+  }
+
+  throw new Error('Nie znaleziono utworu.');
 }
 
 function stopPipeline(state) {
@@ -391,7 +498,7 @@ function createTrackResource(state, track) {
   const sourceArgs = ytDlpArgs([
     '--no-playlist',
     '-f',
-    'bestaudio[protocol^=m3u8]/bestaudio[protocol*=m3u8]/bestaudio/best',
+    'bestaudio/best',
     '-o',
     '-',
     '--',
@@ -474,7 +581,7 @@ function createTrackResource(state, track) {
   ytDlpProcess.once('close', (code, signal) => {
     if (code && !signal) {
       state.pipelineError =
-        trimProcessError(ytDlpError) || `yt-dlp: kod ${code}`;
+        friendlyYouTubeError(ytDlpError) || `yt-dlp: kod ${code}`;
       console.error(`[MUSIC] ${state.pipelineError}`);
     }
   });
@@ -674,8 +781,39 @@ async function connectState(interaction, voiceChannel) {
   state.voiceChannelId = voiceChannel.id;
   state.connection.subscribe(state.player);
 
-  state.connection.on('error', (error) => {
+  const connection = state.connection;
+
+  connection.on('error', (error) => {
     console.error('[MUSIC] Voice connection error:', error);
+  });
+
+  // Po wyrzuceniu bota z kanału lub zerwaniu połączenia czyścimy stan,
+  // żeby następne /play mogło połączyć się od nowa.
+  connection.on(VoiceConnectionStatus.Disconnected, async () => {
+    try {
+      await Promise.race([
+        entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+        entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+      ]);
+    } catch {
+      if (connection.state.status !== VoiceConnectionStatus.Destroyed) {
+        connection.destroy();
+      }
+
+      if (state.connection === connection) {
+        state.connection = null;
+        state.voiceChannelId = null;
+        state.queue = [];
+
+        if (state.current) {
+          state.intentionalStopOnce = true;
+          state.suppressQueueFinishedOnce = true;
+          state.player.stop(true);
+        }
+
+        console.log('[MUSIC] Rozłączono z kanału głosowego.');
+      }
+    }
   });
 
   await entersState(

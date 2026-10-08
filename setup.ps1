@@ -13,7 +13,7 @@ if (-not (Test-Path ".\.env")) {
 
     Write-Host ""
     Write-Host "Utworzono plik .env" -ForegroundColor Green
-    Write-Host "Uzupełnij DISCORD_TOKEN, CLIENT_ID, GUILD_ID i WELCOME_CHANNEL_ID." -ForegroundColor Yellow
+    Write-Host "Uzupełnij DISCORD_TOKEN i GUILD_ID w pliku .env" -ForegroundColor Yellow
 }
 
 Write-Host ""
