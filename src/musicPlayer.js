@@ -23,12 +23,16 @@ const MAX_PLAYLIST_TRACKS = 200;
 const PROCESS_TIMEOUT_MS = 45_000;
 const MIN_SUCCESSFUL_PLAYBACK_MS = 2_000;
 const PIPELINE_ERROR_GRACE_MS = 1_500;
+const ANNOUNCE_DELAY_MS = 2_500;
 
 let initialized = false;
 let ytDlpPath = null;
 let ffmpegPath = null;
 let youtubeCookiesPath = null;
 let jsRuntimeSupported = false;
+let youtubeBlockedUntil = 0;
+const YOUTUBE_BLOCK_MEMORY_MS = 30 * 60_000;
+const BOT_CHECK_PATTERN = /sign in to confirm|not a bot|zablokował ten adres/i;
 
 function isYouTubeUrl(value) {
   try {
@@ -392,6 +396,11 @@ function entryToTrack(entry, fallbackUrl) {
 }
 
 function friendlyYouTubeError(message) {
+  if (BOT_CHECK_PATTERN.test(message)) {
+    // Zapamiętujemy blokadę, żeby kolejne utwory nie czekały na YouTube.
+    youtubeBlockedUntil = Date.now() + YOUTUBE_BLOCK_MEMORY_MS;
+  }
+
   if (/sign in to confirm|not a bot|cookies/i.test(message)) {
     return (
       'YouTube zablokował ten adres IP (weryfikacja „nie jestem botem”). ' +
@@ -426,6 +435,78 @@ async function fetchTracks(target, limit) {
   };
 }
 
+function soundCloudQuery(track) {
+  const title = (track.title || '').trim();
+  const author = (track.author || '').replace(/\s*-\s*Topic$/i, '').trim();
+
+  if (!title || title === 'YouTube') {
+    return '';
+  }
+
+  return author && !title.includes(' - ') && !title.includes(author)
+    ? `${author} ${title}`
+    : title;
+}
+
+// Gdy YouTube blokuje serwer, szukamy tego samego tytułu na SoundCloud.
+async function findSoundCloudFallback(track) {
+  if (!track || track.fallback || !isYouTubeUrl(track.url)) {
+    return null;
+  }
+
+  const query = soundCloudQuery(track);
+
+  if (!query) {
+    return null;
+  }
+
+  try {
+    const { tracks } = await fetchTracks(`scsearch1:${query}`, 1);
+    const found = tracks[0];
+
+    if (!found || isYouTubeUrl(found.url)) {
+      return null;
+    }
+
+    return {
+      ...found,
+      title: found.title === 'YouTube' ? track.title : found.title,
+      fallback: true,
+    };
+  } catch (error) {
+    console.error(
+      `[MUSIC] SoundCloud (zamiennik) nie powiódł się: ${trimProcessError(
+        error.message,
+      )}`,
+    );
+    return null;
+  }
+}
+
+// Tytuł filmu bez pobierania strumienia – działa także z zablokowanego IP.
+async function fetchYouTubeTitle(url) {
+  try {
+    const response = await fetch(
+      `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(url)}`,
+      { signal: AbortSignal.timeout(8_000) },
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+
+    return {
+      url,
+      title: data.title || '',
+      author: data.author_name || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function resolveTracks(query) {
   const playlist = isPlaylistUrl(query);
   // Linki są przekazywane bez zmian. Sam tekst szukamy najpierw na YouTube,
@@ -455,6 +536,16 @@ async function resolveTracks(query) {
           error.message,
         )}`,
       );
+    }
+  }
+
+  if (lastError && isYouTubeUrl(query) && !playlist) {
+    const fallback = await findSoundCloudFallback(
+      await fetchYouTubeTitle(query),
+    );
+
+    if (fallback) {
+      return { tracks: [fallback], playlistTitle: null };
     }
   }
 
@@ -666,20 +757,30 @@ function buildState(guild, textChannel) {
   player.on(AudioPlayerStatus.Playing, () => {
     const track = state.current;
 
-    // Zdarzenie Playing pojawia się też po każdym wznowieniu (pauza,
-    // chwilowe zerwanie połączenia głosowego), więc ogłaszamy utwór raz.
+    // Zdarzenie Playing pojawia się też po każdym wznowieniu, a czasem tuż
+    // przed błędem strumienia. Ogłaszamy utwór raz i dopiero gdy naprawdę gra.
     if (!track || track.announced) {
       return;
     }
 
     track.announced = true;
     console.log(`[MUSIC] Discord voice playing: ${track.title}`);
-    sendMessage(
-      state,
-      `🎵 **Teraz gra:** **${track.title}**${
-        track.author ? `\n👤 ${track.author}` : ''
-      }`,
-    );
+
+    setTimeout(() => {
+      if (
+        state.current !== track ||
+        state.player.state.status === AudioPlayerStatus.Idle
+      ) {
+        return;
+      }
+
+      sendMessage(
+        state,
+        `🎵 **Teraz gra:** **${track.title}**${
+          track.author ? `\n👤 ${track.author}` : ''
+        }${track.fallback ? '\n☁️ Źródło: SoundCloud' : ''}`,
+      );
+    }, ANNOUNCE_DELAY_MS);
   });
 
   player.on(AudioPlayerStatus.Idle, async () => {
@@ -726,14 +827,25 @@ function buildState(guild, textChannel) {
     state.suppressHistoryOnce = false;
 
     if (pipelineError || failedBeforePlayback) {
-      state.suppressQueueFinishedOnce = state.queue.length === 0;
-      sendMessage(
-        state,
-        `❌ Nie udało się uruchomić **${finishedTrack?.title ?? 'YouTube'}**: ${
-          pipelineError ||
-          'YouTube nie udostępnił działającego strumienia. Spróbuj innego utworu.'
-        }`,
-      );
+      const fallback = intentionalStop
+        ? null
+        : await findSoundCloudFallback(finishedTrack);
+
+      if (fallback) {
+        console.log(
+          `[MUSIC] YouTube odmówił, zamiennik z SoundCloud: ${fallback.title} (${fallback.url})`,
+        );
+        state.queue.unshift(fallback);
+      } else {
+        state.suppressQueueFinishedOnce = state.queue.length === 0;
+        sendMessage(
+          state,
+          `❌ Nie udało się uruchomić **${finishedTrack?.title ?? 'YouTube'}**: ${
+            pipelineError ||
+            'YouTube nie udostępnił działającego strumienia. Spróbuj innego utworu.'
+          }`,
+        );
+      }
     }
 
     setImmediate(() => playNext(state));
@@ -873,6 +985,20 @@ export async function handlePlay(interaction) {
 
   const state = await connectState(interaction, voiceChannel);
   const result = await resolveTracks(query);
+
+  // YouTube niedawno odmówił temu serwerowi – pojedynczy utwór od razu
+  // bierzemy z SoundCloud zamiast czekać na kolejną odmowę.
+  if (
+    Date.now() < youtubeBlockedUntil &&
+    result.tracks.length === 1 &&
+    !result.playlistTitle
+  ) {
+    const fallback = await findSoundCloudFallback(result.tracks[0]);
+
+    if (fallback) {
+      result.tracks[0] = fallback;
+    }
+  }
   const wasIdle = !state.current && state.queue.length === 0;
 
   state.queue.push(...result.tracks);
@@ -891,7 +1017,11 @@ export async function handlePlay(interaction) {
   }
 
   await interaction.editReply({
-    content: `➕ Dodano do kolejki: **${result.tracks[0].title}**`,
+    content:
+      `➕ Dodano do kolejki: **${result.tracks[0].title}**` +
+      (result.tracks[0].fallback
+        ? '\n☁️ YouTube zablokował serwer, gram wersję z SoundCloud.'
+        : ''),
   });
 }
 
